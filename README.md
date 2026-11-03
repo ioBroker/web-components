@@ -6,10 +6,11 @@ connection to ioBroker and the values of the settings.
 
 This package is the contract between the two sides, plus what both would otherwise write themselves:
 
-| Entry                                | For               | What                                                          |
-|--------------------------------------|-------------------|---------------------------------------------------------------|
-| `@iobroker/web-components`           | hosts             | types, checking a manifest, settings values, finding, loading |
-| `@iobroker/web-components/element`   | component authors | base class `IobWebComponent`, `defineWebComponent`            |
+| Entry                                      | For               | What                                                          |
+|--------------------------------------------|-------------------|---------------------------------------------------------------|
+| `@iobroker/web-components`                 | hosts             | types, checking a manifest, settings values, finding, loading |
+| `@iobroker/web-components/element`         | component authors | base class `IobWebComponent`, `defineWebComponent`            |
+| `@iobroker/web-components/esm/react-19.js` | web, admin        | React 19 as one ES module, served as `/lib/esm/react-19.js`   |
 
 The main entry touches no DOM while it is imported, so a host can use it in Node as well (tests, a backend
 that checks manifests). `element` defines a class that extends `HTMLElement` and needs a browser.
@@ -76,7 +77,8 @@ The rules for a component:
   itself - it scales with container queries (`container-type: size`, `cqmin`).
 - It inherits `color` and `font` from the host, so it follows the theme of the host. Shadow DOM keeps its own
   styles in and the styles of the host out.
-- It brings everything it needs; a component built with React, Lit or Svelte bundles its framework.
+- It brings everything it needs; a component built with Lit or Svelte bundles its framework, one built with React
+  may take React from the host (see [Frameworks in components](#frameworks-in-components)).
 
 The base class takes care of the first two rules:
 
@@ -115,6 +117,93 @@ defineWebComponent(manifest, MyValue);
 `this.states` and `this.objects` hold what the subscribed IDs have, `this.setState(id, val)` writes through the
 socket, `this.text(...)` translates into `this.systemLang`.
 
+## Frameworks in components
+
+A component may be written with anything that ends up as a custom element: plain DOM, Lit, Preact, Svelte,
+React. The host neither knows nor cares.
+
+The contract carries **no React object** from the host. It would not help:
+
+- A module that uses React calls it while it is evaluated (`createContext`, `forwardRef`, `memo` of every library
+  it imports) - long before a host could hand anything to an element.
+- `import { useState } from 'react'` cannot be rebound to an object passed in later. A component would have to
+  call `this.React.useState` everywhere, and no library (MUI, ...) is written like that.
+- Every component would be tied to the React version of every host it runs in.
+
+What to do instead:
+
+- **Lit or Preact** for new components: a few KB per component, and no question of sharing.
+- **One build per adapter**: the components of one adapter are one Vite build with an entry each, so they share
+  their chunks - and one React - with each other.
+- **React from the host**: web and admin serve React 19 as one ES module at `/lib/esm/react-19.js`
+  (`REACT_19_URL`): `react`, `react-dom`, `react-dom/client` and `react/jsx-runtime` together, so there can never
+  be two copies of React in it. A component maps these imports (`REACT_SPECIFIERS`) onto that URL instead of
+  bundling them, and every React component on the page uses the same instance:
+
+```js
+// vite.config.mjs
+import { REACT_19_URL, REACT_SPECIFIERS } from '@iobroker/web-components';
+
+export default {
+    build: {
+        lib: { entry: 'src/my-tile.jsx', formats: ['es'], fileName: () => 'my-tile.js' },
+        rollupOptions: {
+            external: REACT_SPECIFIERS,
+            output: { paths: Object.fromEntries(REACT_SPECIFIERS.map(name => [name, REACT_19_URL])) },
+        },
+    },
+};
+```
+
+The built module then starts with `import { createRoot, jsx, jsxs } from "/lib/esm/react-19.js"`; the example
+below is 3 KB, with the base class bundled. It renders into its shadow root:
+
+```jsx
+import { createRoot } from 'react-dom/client';
+import { IobWebComponent, defineWebComponent } from '@iobroker/web-components/element';
+
+function Tile({ name, value, onToggle }) {
+    return (
+        <button onClick={onToggle}>
+            {name}: {String(value ?? '-')}
+        </button>
+    );
+}
+
+class MyTile extends IobWebComponent {
+    #root = createRoot(this.attachShadow({ mode: 'open' }));
+
+    getStateIds(settings) {
+        return [settings.oid];
+    }
+
+    render() {
+        const oid = this.settings.oid;
+        const value = this.states[oid]?.val;
+        const name = this.text(this.objects[oid]?.common.name) || oid;
+        this.#root.render(
+            <Tile
+                name={name}
+                value={value}
+                onToggle={() => this.setState(oid, !value)}
+            />,
+        );
+    }
+}
+
+defineWebComponent(manifest, MyTile);
+```
+
+What to know about the shared React:
+
+- web and admin copy `build/esm/react-19.js` of this package into their `lib/esm/` when they are built, so the
+  React minor is the one of the package version they ship. A component needs React 19, nothing more specific;
+  React 20 would come as `react-20.js` beside it.
+- The host's own React (vis-2 bundles one) is another copy. That does no harm: a component renders into a root of
+  its own and shares no elements with the host.
+- The URL is absolute. Behind a reverse proxy that serves ioBroker under a path (`https://example.com/iob/`) it
+  misses.
+
 ## How a host finds and shows the components
 
 An adapter lists its components in `common.webComponents` of its `io-package.json`, as module URLs relative to
@@ -150,6 +239,7 @@ to render, `checkManifest(manifest)` what is wrong with one.
 - Optional host properties: theme beyond inherited CSS, edit mode.
 - Events from the component to the host ("open my dialog", "navigate").
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
+- The shared React behind a reverse proxy with a path prefix (an import map of the host could point it elsewhere).
 
 ## Changelog
 <!--
@@ -158,6 +248,8 @@ to render, `checkManifest(manifest)` what is wrong with one.
 -->
 ### **WORK IN PROGRESS**
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`
+- (@GermanBluefox) Added `build/esm/react-19.js` - React 19 as one ES module for web and admin to serve as
+  `/lib/esm/react-19.js` - with `REACT_19_URL` and `REACT_SPECIFIERS` for the build of a React component
 
 ## License
 MIT License

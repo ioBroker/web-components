@@ -13,7 +13,8 @@
     "./element": {
       "types": "./build/element.d.ts",
       "default": "./build/element.js"
-    }
+    },
+    "./esm/react-19.js": "./build/esm/react-19.js"
   },
   "sideEffects": false,
   "publishConfig": {
@@ -40,11 +41,11 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node tasks/buildReactEsm.mjs",
     "test": "npm run build && mocha test --exit",
     "test:package": "mocha test --exit",
     "lint": "eslint -c eslint.config.mjs src",
-    "prettier": "prettier -u -w src test",
+    "prettier": "prettier -u -w src test tasks",
     "release": "release-script",
     "release-patch": "release-script patch --yes",
     "release-minor": "release-script minor --yes",
@@ -58,7 +59,10 @@
     "@happy-dom/global-registrator": "^21.0.4",
     "@iobroker/eslint-config": "^2.3.4",
     "@iobroker/types": "^7.2.5",
+    "esbuild": "^0.28.2",
     "mocha": "^12.0.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "~6.0.3"
   },
   "overrides": {

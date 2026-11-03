@@ -1,0 +1,72 @@
+{
+  "name": "@iobroker/web-components",
+  "version": "0.0.0",
+  "description": "Contract and helpers for ioBroker web components: custom elements that vis-2, devices, aura and admin show alike",
+  "type": "module",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    },
+    "./element": {
+      "types": "./build/element.d.ts",
+      "default": "./build/element.js"
+    }
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ioBroker/web-components.git"
+  },
+  "homepage": "https://github.com/ioBroker/web-components#readme",
+  "bugs": {
+    "url": "https://github.com/ioBroker/web-components/issues"
+  },
+  "keywords": [
+    "ioBroker",
+    "web components",
+    "custom elements",
+    "vis-2",
+    "json-config"
+  ],
+  "author": {
+    "name": "ioBroker",
+    "email": "info@iobroker.net"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && mocha test --exit",
+    "test:package": "mocha test --exit",
+    "lint": "eslint -c eslint.config.mjs src",
+    "prettier": "prettier -u -w src test",
+    "release": "release-script",
+    "release-patch": "release-script patch --yes",
+    "release-minor": "release-script minor --yes",
+    "release-major": "release-script major --yes",
+    "update-packages": "npx -y npm-check-updates --upgrade",
+    "npm": "npm i -f"
+  },
+  "devDependencies": {
+    "@alcalzone/release-script": "^5.2.1",
+    "@alcalzone/release-script-plugin-license": "^5.2.2",
+    "@happy-dom/global-registrator": "^21.0.4",
+    "@iobroker/eslint-config": "^2.3.4",
+    "@iobroker/types": "^7.2.5",
+    "mocha": "^12.0.3",
+    "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "@iobroker/types": "$@iobroker/types"
+  },
+  "files": [
+    "LICENSE",
+    "README.md",
+    "build"
+  ]
+}

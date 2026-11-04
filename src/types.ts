@@ -134,6 +134,22 @@ export interface WebComponentSocket {
     unsubscribeObject(id: string | string[], cb?: WebComponentObjectChangeHandler): Promise<void>;
     getHistory(id: string, options: ioBroker.GetHistoryOptions): Promise<ioBroker.GetHistoryResult>;
     /**
+     * The objects of one type whose IDs lie between `start` and `end`, by ID - read once, not kept up to date
+     *
+     * For what a component has to find rather than name, e.g. the players of the instance of a setting:
+     * `getObjectViewSystem('channel', 'music-assistant.0.players.', 'music-assistant.0.players.香')`.
+     * Ask for a range as narrow as possible: without `start` and `end` it is every object of that type.
+     *
+     * @param type the type of the objects, e.g. `channel`
+     * @param start the first ID
+     * @param end the last ID; `<start>香` for everything below `start`
+     */
+    getObjectViewSystem<T extends ioBroker.ObjectType>(
+        type: T,
+        start?: string,
+        end?: string,
+    ): Promise<Record<string, ioBroker.AnyObject & { type: T }>>;
+    /**
      * Send a command to an adapter instance and get its answer
      *
      * @param instance e.g. `flow.0`

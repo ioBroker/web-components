@@ -116,8 +116,10 @@ The rules for a component:
   Without a socket it waits for one; it never opens a connection of its own.
 - It subscribes while it is in the document and unsubscribes when it leaves. Of the socket it uses only
   `subscribeState`, `unsubscribeState`, `getState`, `setState`, `getObject`, `subscribeObject`,
-  `unsubscribeObject`, `getHistory`, `sendTo` and `systemLang` (`WebComponentSocket`). With
-  `sendTo(instance, command, data)` it asks its own adapter for what states and objects do not carry.
+  `unsubscribeObject`, `getHistory`, `getObjectViewSystem`, `sendTo` and `systemLang` (`WebComponentSocket`).
+  With `getObjectViewSystem(type, start, end)` it finds objects it cannot name, like the players below the
+  instance of a setting - read once, in a range as narrow as possible. With `sendTo(instance, command, data)` it
+  asks its own adapter for what states and objects do not carry.
 - A value has the type its setting declares: a number for `number` and `slider`, a boolean for `checkbox`, a
   string otherwise. A setting without a value is missing from the object.
 - It fills the box the host gives it (`:host { display: block; width: 100%; height: 100% }`) and never measures
@@ -402,6 +404,11 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) Added `getObjectViewSystem` to `WebComponentSocket`: a component finds the objects of one type
+  in a range of IDs, e.g. the players of an instance. `Connection` of `@iobroker/socket-client` has it already, so
+  vis-2, devices and admin pass it on unchanged
+
 ### 0.3.0 (2026-11-04)
 - (@GermanBluefox) (breaking) A component is described by a manifest file (`.json`) next to its module, named in
   `common.webComponents`; the manifest gives the module as `module`. Hosts, backends and the repochecker read it

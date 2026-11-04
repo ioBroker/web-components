@@ -122,6 +122,14 @@ export interface WebComponentSocket {
     subscribeObject(id: string | string[], cb: WebComponentObjectChangeHandler): Promise<void>;
     unsubscribeObject(id: string | string[], cb?: WebComponentObjectChangeHandler): Promise<void>;
     getHistory(id: string, options: ioBroker.GetHistoryOptions): Promise<ioBroker.GetHistoryResult>;
+    /**
+     * Send a command to an adapter instance and get its answer
+     *
+     * @param instance e.g. `flow.0`
+     * @param command the command the adapter understands
+     * @param data what the command needs
+     */
+    sendTo<T = unknown>(instance: string, command: string, data?: unknown): Promise<T>;
 }
 
 /** The values of the settings as the element gets them, keyed by the names in `items` */

@@ -80,7 +80,8 @@ The rules for a component:
   Without a socket it waits for one; it never opens a connection of its own.
 - It subscribes while it is in the document and unsubscribes when it leaves. Of the socket it uses only
   `subscribeState`, `unsubscribeState`, `getState`, `setState`, `getObject`, `subscribeObject`,
-  `unsubscribeObject`, `getHistory` and `systemLang` (`WebComponentSocket`).
+  `unsubscribeObject`, `getHistory`, `sendTo` and `systemLang` (`WebComponentSocket`). With
+  `sendTo(instance, command, data)` it asks its own adapter for what states and objects do not carry.
 - A value has the type its setting declares: a number for `number` and `slider`, a boolean for `checkbox`, a
   string otherwise. A setting without a value is missing from the object.
 - It fills the box the host gives it (`:host { display: block; width: 100%; height: 100% }`) and never measures
@@ -88,8 +89,8 @@ The rules for a component:
 - It has a transparent background and inherits `color` and `font` from the host, so it follows the theme of the
   host. Shadow DOM keeps its own styles in and the styles of the host out; `theme` is for what CSS cannot carry,
   like the colors of a chart.
-- In `editMode` it writes no states and reacts to no clicks - the host needs them to select and move it. Where
-  settings are still missing, it may show sample data.
+- In `editMode` it writes no states, sends no command that changes something, and reacts to no clicks - the
+  host needs them to select and move it. Where settings are still missing, it may show sample data.
 - It brings everything it needs; a component built with Lit or Svelte bundles its framework, one built with React
   may take React from the host (see [Frameworks in components](#frameworks-in-components)).
 
@@ -286,8 +287,8 @@ to render, `checkManifest(manifest)` what is wrong with one.
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`
 - (@GermanBluefox) Added `build/esm/react-19.js` - React 19 as one ES module for web and admin to serve as
   `/lib/esm/react-19.js` - with `REACT_19_URL` and `REACT_SPECIFIERS` for the build of a React component
-- (@GermanBluefox) Added `subscribeObject`, `unsubscribeObject` and `getHistory` to `WebComponentSocket`, and
-  `getObjectIds()` to the base class for objects that are kept up to date
+- (@GermanBluefox) Added `subscribeObject`, `unsubscribeObject`, `getHistory` and `sendTo` to
+  `WebComponentSocket`, and `getObjectIds()` to the base class for objects that are kept up to date
 - (@GermanBluefox) Added the optional host properties `theme` and `editMode`, `size.noResize`, and events to the
   host (`emit()` in the base class)
 

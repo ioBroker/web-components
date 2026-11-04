@@ -2,7 +2,27 @@
  * The values of the settings: which there are, their defaults, and their types
  */
 import { DECORATION_TYPES, getSettingsGroups } from './manifest.js';
-import type { WebComponentManifest, WebComponentSettings, WebComponentSettingType } from './types.js';
+import type {
+    WebComponentManifest,
+    WebComponentSettings,
+    WebComponentSettingsPanel,
+    WebComponentSettingType,
+} from './types.js';
+
+/**
+ * The fields of one panel that carry a value, with their types - e.g. of the form of a dialog
+ *
+ * @param panel a JSON-Config panel
+ */
+export function getPanelSettingTypes(panel: WebComponentSettingsPanel): Record<string, WebComponentSettingType> {
+    const types: Record<string, WebComponentSettingType> = {};
+    for (const [name, setting] of Object.entries(panel.items || {})) {
+        if (setting && !DECORATION_TYPES.includes(setting.type)) {
+            types[name] = setting.type;
+        }
+    }
+    return types;
+}
 
 /**
  * The settings that carry a value - what the element gets in `settings` - with their types
@@ -12,11 +32,7 @@ import type { WebComponentManifest, WebComponentSettings, WebComponentSettingTyp
 export function getSettingTypes(manifest: WebComponentManifest): Record<string, WebComponentSettingType> {
     const types: Record<string, WebComponentSettingType> = {};
     for (const { panel } of getSettingsGroups(manifest)) {
-        for (const [name, setting] of Object.entries(panel.items || {})) {
-            if (setting && !DECORATION_TYPES.includes(setting.type)) {
-                types[name] = setting.type;
-            }
-        }
+        Object.assign(types, getPanelSettingTypes(panel));
     }
     return types;
 }

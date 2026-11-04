@@ -27,14 +27,22 @@
  * This module defines a class that extends `HTMLElement`, so it can only be imported where there is a DOM.
  * Hosts import the main entry `@iobroker/web-components` instead.
  */
+import { isFormDialog } from './dialog.js';
 import { getText } from './manifest.js';
+import { openNativeDialog } from './nativeDialog.js';
+import { getPanelSettingTypes, toSettings } from './settings.js';
 import type {
+    WebComponentDialogs,
+    WebComponentElementDialog,
+    WebComponentFormDialog,
     WebComponentManifest,
     WebComponentSettings,
     WebComponentSocket,
     WebComponentText,
     WebComponentTheme,
 } from './types.js';
+
+export { openNativeDialog, type NativeDialogOptions } from './nativeDialog.js';
 
 interface Subscription {
     socket: WebComponentSocket;
@@ -68,6 +76,8 @@ export abstract class IobWebComponent<
     #theme: WebComponentTheme = 'light';
 
     #editMode = false;
+
+    #dialogs: WebComponentDialogs | null = null;
 
     #subscription: Subscription | null = null;
 
@@ -131,6 +141,15 @@ export abstract class IobWebComponent<
             this.#editMode = value;
             this.#scheduleRender();
         }
+    }
+
+    /** Dialogs in the look of the host, if it offers them; `openDialog()` takes the browser's otherwise */
+    get dialogs(): WebComponentDialogs | null {
+        return this.#dialogs;
+    }
+
+    set dialogs(dialogs: WebComponentDialogs | null | undefined) {
+        this.#dialogs = dialogs || null;
     }
 
     connectedCallback(): void {
@@ -197,6 +216,32 @@ export abstract class IobWebComponent<
      */
     protected emit(type: string, detail?: unknown): boolean {
         return this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true, cancelable: true }));
+    }
+
+    /**
+     * Show a dialog: the one of the host if it offers `dialogs`, the `<dialog>` of the browser otherwise. In edit
+     * mode nothing is shown and the result is `null`.
+     *
+     * @param request a form the host renders, or an element of the component the host frames
+     * @returns the values of a form, typed as it declares them; for an element the `detail` of its
+     *   `iob-dialog-close` event; `null` when the user cancelled
+     */
+    protected openDialog(request: WebComponentFormDialog): Promise<WebComponentSettings | null>;
+    protected openDialog(request: WebComponentElementDialog): Promise<unknown>;
+    protected async openDialog(request: WebComponentFormDialog | WebComponentElementDialog): Promise<unknown> {
+        if (this.#editMode) {
+            return null;
+        }
+        const result = this.#dialogs
+            ? await this.#dialogs.open(request)
+            : await openNativeDialog(request, { lang: this.systemLang, theme: this.#theme });
+        if (isFormDialog(request)) {
+            // whatever a host returns, the component gets the types the form declares
+            return result && typeof result === 'object'
+                ? toSettings(getPanelSettingTypes(request.form), result as Record<string, unknown>)
+                : null;
+        }
+        return result ?? null;
     }
 
     /** Subscribe what the settings name now and unsubscribe the rest, then draw */

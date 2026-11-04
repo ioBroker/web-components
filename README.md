@@ -9,7 +9,7 @@ This package is the contract between the two sides, plus what both would otherwi
 | Entry                                      | For               | What                                                          |
 |--------------------------------------------|-------------------|---------------------------------------------------------------|
 | `@iobroker/web-components`                 | hosts             | types, checking a manifest, settings values, finding, loading |
-| `@iobroker/web-components/element`         | component authors | base class `IobWebComponent`, `defineWebComponent`            |
+| `@iobroker/web-components/element`         | component authors | base class `IobWebComponent`, `defineWebComponent`, dialogs   |
 | `@iobroker/web-components/esm/react-19.js` | web, admin        | React 19 as one ES module, served as `/lib/esm/react-19.js`   |
 | `@iobroker/web-components/esm/react-18.js` | web, admin        | React 18 as one ES module, served as `/lib/esm/react-18.js`   |
 
@@ -63,7 +63,7 @@ and `disabled` are JS expressions over `data`, the values of all settings.
 
 ## The element
 
-The host sets two **properties**, not attributes, and two optional ones if it has them:
+The host sets two **properties**, not attributes, and optional ones if it has them:
 
 | Property   | What                                                                                        |
 |------------|---------------------------------------------------------------------------------------------|
@@ -71,6 +71,7 @@ The host sets two **properties**, not attributes, and two optional ones if it ha
 | `settings` | the values of the settings, keyed by the names in `items`; a **new object** on every change |
 | `theme`    | optional: `light` or `dark`, the theme of the host; `light` if the host does not set it     |
 | `editMode` | optional: `true` while the user arranges the page in the editor of the host                 |
+| `dialogs`  | optional: dialogs in the look of the host, see [Dialogs](#dialogs)                          |
 
 The values are in one object, not in a property each, because many names a setting would have are taken by
 `HTMLElement` already: `title`, `lang`, `hidden`, `id`, `style`, ...
@@ -155,6 +156,46 @@ el.addEventListener('flow-node-click', e => {
 
 The name of an event contains a `-`, like a tag, so it never clashes with an event of the DOM. A host often clips
 what leaves the box of a component, so a popup is usually better shown by the host.
+
+## Dialogs
+
+A component brings no dialog of its own - no MUI only for that. A MUI dialog would not even work: its portal
+leaves the shadow DOM, where its styles are, and inside the shadow DOM the box of the component clips it. The
+host frames the dialog instead, and the component asks for one of two kinds:
+
+```js
+// a form: the host renders the fields - the types of the settings, a JSON-Config panel - and gives the values
+const values = await this.openDialog({
+    title: { en: 'Limits', de: 'Grenzen' },
+    form: { type: 'panel', items: { max: { type: 'number', label: 'Maximum', min: 0, max: 100 } } },
+    data: { max: 80 },
+});
+// { max: 80 } typed as the form declares it, or null if the user cancelled
+
+// an element: the component renders the content, the host only frames it (title, close button, backdrop)
+const content = document.createElement('div');
+content.attachShadow({ mode: 'open' }).innerHTML = '<svg>...</svg><button>Done</button>';
+content.shadowRoot.querySelector('button').onclick = () =>
+    content.dispatchEvent(new CustomEvent('iob-dialog-close', { detail: 'done', bubbles: true, composed: true }));
+const result = await this.openDialog({ title: 'Battery', element: content, width: 600 });
+// 'done', or null if the user closed it
+```
+
+`openDialog()` of the base class asks the host if it set `dialogs`, and takes the `<dialog>` of the browser
+otherwise - opened with `showModal()`, it lies above everything of the page and is clipped by nothing. So a
+component works in every host; in a host with `dialogs` it looks like the host. In edit mode it shows nothing and
+gives `null`. Without the base class, `openNativeDialog(request, { lang, theme })` of
+`@iobroker/web-components/element` is the same fallback.
+
+The host moves the element of an element dialog into its own dialog, so the element brings its own styles in a
+shadow root, and closes the dialog with the event `iob-dialog-close` (`DIALOG_CLOSE_EVENT`).
+
+A host implements `dialogs.open(request)`: `isFormDialog(request)` tells the two kinds apart; for a form it renders
+`request.form` like the settings and resolves with the values (`toSettings(getPanelSettingTypes(request.form),
+values)` types them), for an element it puts `request.element` into its dialog and resolves with the `detail` of
+`iob-dialog-close`; `null` when the user cancels.
+
+The order for a click is: the event first (the host may answer it completely), then `openDialog()`.
 
 ## Frameworks in components
 
@@ -284,12 +325,18 @@ to render, `checkManifest(manifest)` what is wrong with one.
 - Which events a host can bind to actions of its own (navigate to a view), and whether the manifest lists them.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
 - The shared React behind a reverse proxy with a path prefix (an import map of the host could point it elsewhere).
+- Colors of the host beyond `theme` (primary color, paper), so that the content of a dialog matches the host.
 
 ## Changelog
 <!--
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) Added dialogs: the optional host property `dialogs`, `openDialog()` in the base class with the
+  `<dialog>` of the browser as fallback (`openNativeDialog()`), and `isFormDialog()`, `getPanelSettingTypes()` and
+  `DIALOG_CLOSE_EVENT` for hosts
+
 ### 0.1.0 (2026-11-04)
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`
 - (@GermanBluefox) Added `build/esm/react-19.js` - React 19 as one ES module for web and admin to serve as

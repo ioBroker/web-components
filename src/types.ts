@@ -9,7 +9,7 @@
  * - `socket`: the connection to ioBroker, see {@link WebComponentSocket}
  * - `settings`: the values of the settings the manifest describes, a new object on every change
  *
- * and, if it has them, two optional ones: `theme` and `editMode`, see {@link WebComponentElement}.
+ * and, if it has them, optional ones: `theme`, `editMode` and `dialogs`, see {@link WebComponentElement}.
  *
  * To tell the host something, the element dispatches a `CustomEvent` that bubbles, is composed and can be
  * cancelled; a host that calls `preventDefault()` answers it itself.
@@ -138,6 +138,48 @@ export type WebComponentSettings = Record<string, string | number | boolean | un
 /** The theme of the host, for what a component cannot take from the inherited CSS */
 export type WebComponentTheme = 'light' | 'dark';
 
+interface WebComponentDialogBase {
+    title?: WebComponentText;
+    /** In px; the host gives less on a small screen */
+    width?: number;
+    /** In px; the host gives less on a small screen */
+    height?: number;
+}
+
+/**
+ * A dialog whose content the component renders itself; the host only frames it (title, close button, backdrop)
+ *
+ * The host moves `element` into its dialog, so the element brings its own styles (a shadow root). It closes the
+ * dialog by dispatching `iob-dialog-close` (bubbling, composed) with the result as `detail`.
+ */
+export interface WebComponentElementDialog extends WebComponentDialogBase {
+    element: HTMLElement;
+}
+
+/** A dialog the host renders completely: fields like the settings, a JSON-Config panel */
+export interface WebComponentFormDialog extends WebComponentDialogBase {
+    form: WebComponentSettingsPanel;
+    /** The values to start with, keyed by the names in `form.items`; else their `default` */
+    data?: WebComponentSettings;
+    /** Text of the button that takes the values, `OK` if missing */
+    ok?: WebComponentText;
+    /** Text of the button that drops them, `Cancel` if missing */
+    cancel?: WebComponentText;
+}
+
+export type WebComponentDialogRequest = WebComponentElementDialog | WebComponentFormDialog;
+
+/** Dialogs of the host - optional property `dialogs` of the element */
+export interface WebComponentDialogs {
+    /**
+     * Show a dialog and resolve when it closes: with the values for a form (typed as the form declares them, like
+     * settings), with the `detail` of `iob-dialog-close` for an element, with `null` when the user cancelled
+     *
+     * @param request what to show
+     */
+    open(request: WebComponentDialogRequest): Promise<unknown>;
+}
+
 /** The element as the host sees it */
 export interface WebComponentElement extends HTMLElement {
     socket?: WebComponentSocket | null;
@@ -149,6 +191,8 @@ export interface WebComponentElement extends HTMLElement {
      * states and reacts to no clicks, and may show sample data where settings are still missing
      */
     editMode?: boolean;
+    /** Optional: dialogs in the look of the host; without them a component takes the `<dialog>` of the browser */
+    dialogs?: WebComponentDialogs | null;
 }
 
 /** What the module of a web component exports */

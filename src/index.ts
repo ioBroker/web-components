@@ -13,7 +13,8 @@ export {
     resolveManifestUrl,
     type WebComponentSettingsGroup,
 } from './manifest.js';
-export { getDefaultSettings, getSettingTypes, toSettings, toSettingValue } from './settings.js';
+export { getDefaultSettings, getPanelSettingTypes, getSettingTypes, toSettings, toSettingValue } from './settings.js';
+export { DIALOG_CLOSE_EVENT, isFormDialog } from './dialog.js';
 export { getWebComponentSources, type WebComponentInstance } from './sources.js';
 export { REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from './react.js';
 export {

@@ -14,7 +14,8 @@
       "types": "./build/element.d.ts",
       "default": "./build/element.js"
     },
-    "./esm/react-19.js": "./build/esm/react-19.js"
+    "./esm/react-19.js": "./build/esm/react-19.js",
+    "./esm/react-18.js": "./build/esm/react-18.js"
   },
   "sideEffects": false,
   "publishConfig": {
@@ -45,7 +46,7 @@
     "test": "npm run build && mocha test --exit",
     "test:package": "mocha test --exit",
     "lint": "eslint -c eslint.config.mjs src",
-    "prettier": "prettier -u -w src test tasks",
+    "prettier": "prettier -u -w src test tasks/*.mjs",
     "release": "release-script",
     "release-patch": "release-script patch --yes",
     "release-minor": "release-script minor --yes",

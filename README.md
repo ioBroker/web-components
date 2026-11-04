@@ -11,6 +11,7 @@ This package is the contract between the two sides, plus what both would otherwi
 | `@iobroker/web-components`                 | hosts             | types, checking a manifest, settings values, finding, loading |
 | `@iobroker/web-components/element`         | component authors | base class `IobWebComponent`, `defineWebComponent`            |
 | `@iobroker/web-components/esm/react-19.js` | web, admin        | React 19 as one ES module, served as `/lib/esm/react-19.js`   |
+| `@iobroker/web-components/esm/react-18.js` | web, admin        | React 18 as one ES module, served as `/lib/esm/react-18.js`   |
 
 The main entry touches no DOM while it is imported, so a host can use it in Node as well (tests, a backend
 that checks manifests). `element` defines a class that extends `HTMLElement` and needs a browser.
@@ -174,9 +175,10 @@ What to do instead:
 - **One build per adapter**: the components of one adapter are one Vite build with an entry each, so they share
   their chunks - and one React - with each other.
 - **React from the host**: web and admin serve React 19 as one ES module at `/lib/esm/react-19.js`
-  (`REACT_19_URL`): `react`, `react-dom`, `react-dom/client` and `react/jsx-runtime` together, so there can never
-  be two copies of React in it. A component maps these imports (`REACT_SPECIFIERS`) onto that URL instead of
-  bundling them, and every React component on the page uses the same instance:
+  (`REACT_19_URL`), and React 18 at `/lib/esm/react-18.js` (`REACT_18_URL`): `react`, `react-dom`,
+  `react-dom/client` and `react/jsx-runtime` together, so there can never be two copies of React in one. A
+  component maps these imports (`REACT_SPECIFIERS`) onto one of the URLs instead of bundling them, and every React
+  component of that major on the page uses the same instance:
 
 ```js
 // vite.config.mjs
@@ -193,8 +195,9 @@ export default {
 };
 ```
 
-The built module then starts with `import { createRoot, jsx, jsxs } from "/lib/esm/react-19.js"`; the example
-below is 3 KB, with the base class bundled. It renders into its shadow root:
+A component on React 18 takes `REACT_18_URL` instead. The built module then starts with
+`import { createRoot, jsx, jsxs } from "/lib/esm/react-19.js"`; the example below is 3 KB, with the base class
+bundled. It renders into its shadow root:
 
 ```jsx
 import { createRoot } from 'react-dom/client';
@@ -234,9 +237,13 @@ defineWebComponent(manifest, MyTile);
 
 What to know about the shared React:
 
-- web and admin copy `build/esm/react-19.js` of this package into their `lib/esm/` when they are built, so the
-  React minor is the one of the package version they ship. A component needs React 19, nothing more specific;
-  React 20 would come as `react-20.js` beside it.
+- web and admin copy `build/esm/react-19.js` and `react-18.js` of this package into their `lib/esm/` when they
+  are built, so the React minor is the one of the package version they ship. A component needs a major, nothing
+  more specific; React 20 would come as `react-20.js` beside them.
+- The size, minified: `react-19.js` 221 KB (69 KB gzip), `react-18.js` 142 KB (45 KB gzip). A browser loads a
+  file only when a component on the page imports it, and once for all of them.
+- Both majors work side by side on one page, each with its own instance: a React 18 component next to a React 19
+  one.
 - The host's own React (vis-2 bundles one) is another copy. That does no harm: a component renders into a root of
   its own and shares no elements with the host.
 - The URL is absolute. Behind a reverse proxy that serves ioBroker under a path (`https://example.com/iob/`) it
@@ -287,6 +294,7 @@ to render, `checkManifest(manifest)` what is wrong with one.
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`
 - (@GermanBluefox) Added `build/esm/react-19.js` - React 19 as one ES module for web and admin to serve as
   `/lib/esm/react-19.js` - with `REACT_19_URL` and `REACT_SPECIFIERS` for the build of a React component
+- (@GermanBluefox) Added `build/esm/react-18.js` and `REACT_18_URL` - the same for React 18
 - (@GermanBluefox) Added `subscribeObject`, `unsubscribeObject`, `getHistory` and `sendTo` to
   `WebComponentSocket`, and `getObjectIds()` to the base class for objects that are kept up to date
 - (@GermanBluefox) Added the optional host properties `theme` and `editMode`, `size.noResize`, and events to the

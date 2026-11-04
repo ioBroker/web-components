@@ -1,0 +1,9 @@
+{
+    "name": "web-components-react-18",
+    "private": true,
+    "description": "React 18 for build/esm/react-18.js. A folder of its own: react-dom 18 must find react 18, the package itself has react 19",
+    "dependencies": {
+        "react": "18.3.1",
+        "react-dom": "18.3.1"
+    }
+}

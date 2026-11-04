@@ -15,7 +15,7 @@ export {
 } from './manifest.js';
 export { getDefaultSettings, getSettingTypes, toSettings, toSettingValue } from './settings.js';
 export { getWebComponentSources, type WebComponentInstance } from './sources.js';
-export { REACT_19_URL, REACT_SPECIFIERS } from './react.js';
+export { REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from './react.js';
 export {
     loadWebComponent,
     loadWebComponents,

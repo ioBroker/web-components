@@ -27,21 +27,35 @@ function getAdapterName(id: string): string {
 }
 
 /**
+ * The folder `adapter/` of the server, seen from the document of the host
+ *
+ * @param baseUrl URL of the document
+ */
+function getAdaptersFolder(baseUrl: string): URL {
+    const url = new URL(baseUrl);
+    // an admin tab is itself in such a folder: /adapter/devices/tab.html
+    const tab = url.pathname.match(/^(.*\/)adapter\/[^/]+\//);
+    return tab ? new URL(`${tab[1]}adapter/`, url) : new URL('../adapter/', url);
+}
+
+/**
  * Where the web components of the instances are
  *
  * @param instances the instance objects, e.g. of `getObjectViewSystem('instance', ...)`
- * @param baseUrl URL of the document; `../adapter/<name>/` is resolved against it, so a host under a path of its
- *   own (`/vis-2/`) and one at the root of the server both find the folder
+ * @param baseUrl URL of the document. `../adapter/<name>/` is resolved against it, so a host under a path of its
+ *   own (`/vis-2/`) and one at the root of the server both find the folder; a host that is an admin tab
+ *   (`/adapter/devices/tab.html`) finds it next to its own folder. A reverse proxy's path prefix is kept.
  */
 export function getWebComponentSources(instances: WebComponentInstance[], baseUrl: string): WebComponentSource[] {
     const sources: WebComponentSource[] = [];
+    const adaptersFolder = getAdaptersFolder(baseUrl);
     for (const instance of instances) {
         const list = instance?.common?.webComponents;
         if (!Array.isArray(list)) {
             continue;
         }
         const adapter = getAdapterName(instance._id);
-        const adapterBase = new URL(`../adapter/${adapter}/`, baseUrl);
+        const adapterBase = new URL(`${adapter}/`, adaptersFolder);
         for (const entry of list) {
             if (typeof entry !== 'string' || !entry) {
                 continue;

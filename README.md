@@ -55,8 +55,8 @@ so admin and devices (`@iobroker/json-config`) render it unchanged. A component 
 host can show:
 
 `text` (`minRows`), `password`, `number` and `slider` (`min`, `max`, `step`), `checkbox`, `color`, `select`
-(`options: [{ value, label }]`), `objectId`, `instance` (`adapter`), and the decorations without a value
-`header`, `staticText` (`text`) and `divider`.
+(`options: [{ value, label }]`), `objectId` (`types`, `root`, e.g. `types: 'config', root: 'flow.0.diagrams'`),
+`instance` (`adapter`), and the decorations without a value `header`, `staticText` (`text`) and `divider`.
 
 Every text (`name`, `label`, `help`, `text`, the labels of options) is a string or `{ en, de, ... }`. `hidden`
 and `disabled` are JS expressions over `data`, the values of all settings.
@@ -133,7 +133,8 @@ defineWebComponent(manifest, MyValue);
 `this.states` and `this.objects` hold what the subscribed IDs have, `this.setState(id, val)` writes through the
 socket (not in edit mode), `this.text(...)` translates into `this.systemLang`. The objects of the states are read
 once; `getObjectIds(settings)` names objects to keep up to date, like a diagram that is edited elsewhere.
-`this.theme` and `this.editMode` are what the host set, and a change of them draws again as well.
+`getStateIds` may read those objects - the states a diagram names - and is asked again whenever one of them arrives
+or changes. `this.theme` and `this.editMode` are what the host set, and a change of them draws again as well.
 
 ## Events to the host
 
@@ -156,6 +157,13 @@ el.addEventListener('flow-node-click', e => {
 
 The name of an event contains a `-`, like a tag, so it never clashes with an event of the DOM. A host often clips
 what leaves the box of a component, so a popup is usually better shown by the host.
+
+Events every host understands:
+
+| Event (constant)                          | `detail`              | The host                                                            |
+|-------------------------------------------|-----------------------|---------------------------------------------------------------------|
+| `iob-navigate` (`NAVIGATE_EVENT`)         | `{ view: 'Heating' }` | shows its view of that name if it has views, ignores the event else |
+| `iob-dialog-close` (`DIALOG_CLOSE_EVENT`) | the result            | closes the element dialog, see below                                |
 
 ## Dialogs
 
@@ -316,13 +324,17 @@ el.settings = toSettings(getSettingTypes(manifest), storedValues);
 container.appendChild(el);
 ```
 
+`getWebComponentSources` finds `/adapter/` from the address of the host: next to its folder (`/vis-2/`), at the
+root, or - for a host that is an admin tab like `/adapter/devices/tab.html` - next to its own adapter folder. A path
+prefix of a reverse proxy stays.
+
 `getDefaultSettings(manifest)` gives the values for a new instance, `getSettingsGroups(manifest)` the panels
 to render, `checkManifest(manifest)` what is wrong with one.
 
 ## Open points
 
 - Size in a grid (sections of vis-2, cards of devices), and whether a component can ask its host for another size.
-- Which events a host can bind to actions of its own (navigate to a view), and whether the manifest lists them.
+- Which other events a host can bind to actions of its own, and whether the manifest lists them.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
 - The shared React behind a reverse proxy with a path prefix (an import map of the host could point it elsewhere).
 - Colors of the host beyond `theme` (primary color, paper), so that the content of a dialog matches the host.
@@ -336,6 +348,11 @@ to render, `checkManifest(manifest)` what is wrong with one.
 - (@GermanBluefox) Added dialogs: the optional host property `dialogs`, `openDialog()` in the base class with the
   `<dialog>` of the browser as fallback (`openNativeDialog()`), and `isFormDialog()`, `getPanelSettingTypes()` and
   `DIALOG_CLOSE_EVENT` for hosts
+- (@GermanBluefox) The base class asks `getStateIds` again when an object of `getObjectIds` arrives or changes, so
+  the states may come from an object (the nodes of a diagram)
+- (@GermanBluefox) Added the event `iob-navigate` (`NAVIGATE_EVENT`) to show a view of the host
+- (@GermanBluefox) Added the filters `types` and `root` of `objectId` settings
+- (@GermanBluefox) `getWebComponentSources` finds `/adapter/` from a host that is an admin tab too
 
 ### 0.1.0 (2026-11-04)
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`

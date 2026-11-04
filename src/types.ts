@@ -57,6 +57,10 @@ export interface WebComponentSetting {
     options?: WebComponentSettingOption[];
     /** `instance`: instances of this adapter only */
     adapter?: string;
+    /** `objectId`: objects of these types only, `state` if missing - as in JSON-Config */
+    types?: ioBroker.ObjectType | ioBroker.ObjectType[];
+    /** `objectId`: this object and the ones below it only, e.g. `flow.0.diagrams` - as in JSON-Config */
+    root?: string;
     /** JS expression over `data` (the values of all settings), as in JSON-Config */
     hidden?: string;
     /** JS expression over `data` (the values of all settings), as in JSON-Config */
@@ -168,6 +172,12 @@ export interface WebComponentFormDialog extends WebComponentDialogBase {
 }
 
 export type WebComponentDialogRequest = WebComponentElementDialog | WebComponentFormDialog;
+
+/** `detail` of the event `iob-navigate` */
+export interface WebComponentNavigateDetail {
+    /** Name of the view of the host, as the user wrote it into the settings of the component */
+    view: string;
+}
 
 /** Dialogs of the host - optional property `dialogs` of the element */
 export interface WebComponentDialogs {

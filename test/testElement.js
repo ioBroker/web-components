@@ -268,6 +268,38 @@ describe('IobWebComponent', () => {
         assert.deepEqual(socket.subscribedObjects(), []);
     });
 
+    it('asks for the states again when an object of getObjectIds arrives or changes', async () => {
+        // the states are named in the diagram, as in a flow diagram
+        const Nodes = class extends customElements.get('test-diagram') {
+            getStateIds(settings) {
+                return this.objects[settings.diagram]?.native?.states || [];
+            }
+        };
+        defineWebComponent({ tag: 'test-diagram-nodes' }, Nodes);
+        const socket = fakeSocket();
+        socket.getObject = id => Promise.resolve({ _id: id, common: {}, native: { nodes: 1, states: ['a.0.x'] } });
+        const el = document.createElement('test-diagram-nodes');
+        document.body.appendChild(el);
+        el.socket = socket;
+        el.settings = { diagram: 'flow.0.diagrams.pv' };
+        await tick();
+        await tick();
+        assert.deepEqual(socket.subscribed(), ['a.0.x']);
+
+        socket.emitObject('flow.0.diagrams.pv', { common: {}, native: { nodes: 2, states: ['a.0.y'] } });
+        await tick();
+        assert.deepEqual(socket.subscribed(), ['a.0.y']);
+        assert.deepEqual(socket.subscribedObjects(), ['flow.0.diagrams.pv']);
+
+        // deleted: nothing left to show
+        socket.emitObject('flow.0.diagrams.pv', null);
+        await tick();
+        assert.deepEqual(socket.subscribed(), []);
+        assert.deepEqual(socket.subscribedObjects(), ['flow.0.diagrams.pv']);
+        el.remove();
+        assert.deepEqual(socket.subscribedObjects(), []);
+    });
+
     it('reads the object of a state once, but subscribes it when getObjectIds names it too', async () => {
         const socket = fakeSocket();
         const el = document.createElement('test-diagram');

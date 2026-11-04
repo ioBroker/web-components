@@ -182,6 +182,22 @@ describe('getWebComponentSources', () => {
         ]);
     });
 
+    it('finds the folder from an admin tab, also behind a reverse proxy', () => {
+        const demo = [instance('system.adapter.demo.0', ['tile.js'])];
+        assert.equal(
+            getWebComponentSources(demo, 'http://host:8081/adapter/devices/tab.html?0')[0].url,
+            'http://host:8081/adapter/demo/tile.js',
+        );
+        assert.equal(
+            getWebComponentSources(demo, 'https://proxy/iob/adapter/devices/tab.html')[0].url,
+            'https://proxy/iob/adapter/demo/tile.js',
+        );
+        assert.equal(
+            getWebComponentSources(demo, 'https://proxy/iob/vis-2/edit.html')[0].url,
+            'https://proxy/iob/adapter/demo/tile.js',
+        );
+    });
+
     it('lists a module of several instances of one adapter once', () => {
         assert.equal(
             getWebComponentSources(

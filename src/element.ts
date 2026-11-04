@@ -93,7 +93,8 @@ export abstract class IobWebComponent<
     #onObjectChange = (id: string, obj: ioBroker.Object | null | undefined): void => {
         if (this.#subscription?.objects.includes(id)) {
             this.objects[id] = obj || null;
-            this.#scheduleRender();
+            // the states may come from the object, like the nodes of a diagram
+            this.#update();
         }
     };
 
@@ -162,6 +163,9 @@ export abstract class IobWebComponent<
 
     /**
      * The states the element shows for these settings. Empty entries are ignored.
+     *
+     * The objects of `getObjectIds` may name them too, like the nodes of a diagram: read them from `objects`.
+     * This is asked again whenever one of those objects arrives or changes.
      *
      * @param _settings the current settings
      */
@@ -333,7 +337,7 @@ export abstract class IobWebComponent<
                 .then(obj => {
                     if (this.#isSubscribed(socket, 'objects', id)) {
                         this.objects[id] = obj || null;
-                        this.#scheduleRender();
+                        this.#update();
                     }
                 })
                 .catch(() => {});

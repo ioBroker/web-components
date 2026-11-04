@@ -82,7 +82,10 @@ export interface WebComponentSize {
     width: number;
     /** In px */
     height: number;
-    /** The component works in exactly this size only: the host shows it so and lets nobody resize it */
+    /**
+     * Optional, false if missing. True: the component works in exactly this size only - the host shows it so and
+     * lets nobody resize it
+     */
     noResize?: boolean;
 }
 

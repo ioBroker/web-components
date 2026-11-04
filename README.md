@@ -46,7 +46,7 @@ A host gives a new instance the `size`, and the user may resize it. A component 
 only says so with `noResize`: the host then shows it so and lets nobody resize it.
 
 ```js
-size: { width: 400, height: 300, noResize: true },
+size: { width: 400, height: 300, noResize: true }, // noResize is optional, false if missing
 ```
 
 `settings` is [JSON-Config](https://github.com/ioBroker/ioBroker.admin/blob/master/packages/jsonConfig/README.md),

@@ -1,6 +1,6 @@
 {
   "name": "@iobroker/web-components",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Contract and helpers for ioBroker web components: custom elements that vis-2, devices, aura and admin show alike",
   "type": "module",
   "main": "build/index.js",

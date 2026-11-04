@@ -344,7 +344,7 @@ to render, `checkManifest(manifest)` what is wrong with one.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.2.0 (2026-11-04)
 - (@GermanBluefox) Added dialogs: the optional host property `dialogs`, `openDialog()` in the base class with the
   `<dialog>` of the browser as fallback (`openNativeDialog()`), and `isFormDialog()`, `getPanelSettingTypes()` and
   `DIALOG_CLOSE_EVENT` for hosts

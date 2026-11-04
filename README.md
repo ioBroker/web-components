@@ -290,7 +290,7 @@ to render, `checkManifest(manifest)` what is wrong with one.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.1.0 (2026-11-04)
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`
 - (@GermanBluefox) Added `build/esm/react-19.js` - React 19 as one ES module for web and admin to serve as
   `/lib/esm/react-19.js` - with `REACT_19_URL` and `REACT_SPECIFIERS` for the build of a React component

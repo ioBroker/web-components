@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
-import { REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from '../build/index.js';
+import { getReactImportPath, REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from '../build/index.js';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 10));
 
@@ -79,6 +79,24 @@ describe('React modules', () => {
                 'react-dom/client',
                 'react/jsx-runtime',
             ]);
+        });
+
+        it('imports React relative to the module, so a path prefix stays', () => {
+            assert.equal(getReactImportPath('webcomponents/my-tile.js'), '../../../lib/esm/react-19.js');
+            assert.equal(getReactImportPath('./my-tile.js', 18), '../../lib/esm/react-18.js');
+            assert.equal(getReactImportPath('a\\b\\my-tile.js'), '../../../../lib/esm/react-19.js');
+
+            // what the browser makes of it, with and without the prefix of a reverse proxy
+            for (const base of ['https://example.com/', 'https://example.com/iob/']) {
+                const moduleUrl = `${base}adapter/flow/webcomponents/flow-diagram.js`;
+                const react = getReactImportPath('webcomponents/flow-diagram.js');
+                assert.equal(new URL(react, moduleUrl).href, `${base}lib/esm/react-19.js`);
+            }
+        });
+
+        it('takes no path out of the admin folder', () => {
+            assert.throws(() => getReactImportPath('../my-tile.js'));
+            assert.throws(() => getReactImportPath(''));
         });
 
         it('keeps the two majors apart', async () => {

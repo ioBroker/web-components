@@ -256,27 +256,35 @@ What to do instead:
 - **React from the host**: web and admin serve React 19 as one ES module at `/lib/esm/react-19.js`
   (`REACT_19_URL`), and React 18 at `/lib/esm/react-18.js` (`REACT_18_URL`): `react`, `react-dom`,
   `react-dom/client` and `react/jsx-runtime` together, so there can never be two copies of React in one. A
-  component maps these imports (`REACT_SPECIFIERS`) onto one of the URLs instead of bundling them, and every React
-  component of that major on the page uses the same instance:
+  component maps these imports (`REACT_SPECIFIERS`) onto that module instead of bundling them, and every React
+  component of that major on the page uses the same instance.
+
+The component imports React by a path relative to itself, made by `getReactImportPath(modulePath)` from where its
+module lies in the admin folder. A host loads the module from `<base>/adapter/<adapter>/` and has `<base>/lib/esm/`
+beside it, so the browser finds React under the same `<base>` - also behind a reverse proxy that serves ioBroker
+under a path (`https://example.com/iob/`). A property of the element could not give the path: the imports are
+resolved while the module is evaluated, before a host can set anything.
 
 ```js
-// vite.config.mjs
-import { REACT_19_URL, REACT_SPECIFIERS } from '@iobroker/web-components';
+// vite.config.mjs - the module is built to admin/webcomponents/my-tile.js
+import { getReactImportPath, REACT_SPECIFIERS } from '@iobroker/web-components';
+
+const react = getReactImportPath('webcomponents/my-tile.js'); // '../../../lib/esm/react-19.js'
 
 export default {
     build: {
         lib: { entry: 'src/my-tile.jsx', formats: ['es'], fileName: () => 'my-tile.js' },
         rollupOptions: {
             external: REACT_SPECIFIERS,
-            output: { paths: Object.fromEntries(REACT_SPECIFIERS.map(name => [name, REACT_19_URL])) },
+            output: { paths: Object.fromEntries(REACT_SPECIFIERS.map(name => [name, react])) },
         },
     },
 };
 ```
 
-A component on React 18 takes `REACT_18_URL` instead. The built module then starts with
-`import { createRoot, jsx, jsxs } from "/lib/esm/react-19.js"`; the example below is 3 KB, with the base class
-bundled. It renders into its shadow root:
+A component on React 18 takes `getReactImportPath(modulePath, 18)`. The built module then starts with
+`import { createRoot, jsx, jsxs } from "../../../lib/esm/react-19.js"`; the example below is 3 KB, with the base
+class bundled. It renders into its shadow root:
 
 ```jsx
 import { createRoot } from 'react-dom/client';
@@ -325,8 +333,9 @@ What to know about the shared React:
   one.
 - The host's own React (vis-2 bundles one) is another copy. That does no harm: a component renders into a root of
   its own and shares no elements with the host.
-- The URL is absolute. Behind a reverse proxy that serves ioBroker under a path (`https://example.com/iob/`) it
-  misses.
+- A host serves `lib/esm/` beside `adapter/`, under the same base: web and admin do. `REACT_19_URL` and
+  `REACT_18_URL` are where that is without a path prefix; a component does not import them, they miss behind a
+  reverse proxy with a path.
 
 ## How a host finds and shows the components
 
@@ -396,7 +405,6 @@ host serves the admin folder of the adapter itself, or its page is served by web
 - Size in a grid (sections of vis-2, cards of devices), and whether a component can ask its host for another size.
 - Which other events a host can bind to actions of its own, and whether the manifest lists them.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
-- The shared React behind a reverse proxy with a path prefix (an import map of the host could point it elsewhere).
 - Colors of the host beyond `theme` (primary color, paper), so that the content of a dialog matches the host.
 
 ## Changelog
@@ -408,6 +416,9 @@ host serves the admin folder of the adapter itself, or its page is served by web
 - (@GermanBluefox) Added `getObjectViewSystem` to `WebComponentSocket`: a component finds the objects of one type
   in a range of IDs, e.g. the players of an instance. `Connection` of `@iobroker/socket-client` has it already, so
   vis-2, devices and admin pass it on unchanged
+- (@GermanBluefox) Added `getReactImportPath(modulePath, major)`: a component imports the shared React relative to
+  its own module (`../../../lib/esm/react-19.js`), so it finds it behind a reverse proxy with a path prefix too.
+  Components built with `REACT_19_URL` keep working without a prefix; build them again to work with one
 
 ### 0.3.0 (2026-11-04)
 - (@GermanBluefox) (breaking) A component is described by a manifest file (`.json`) next to its module, named in

@@ -16,7 +16,7 @@ export {
 export { getDefaultSettings, getPanelSettingTypes, getSettingTypes, toSettings, toSettingValue } from './settings.js';
 export { DIALOG_CLOSE_EVENT, isFormDialog, NAVIGATE_EVENT } from './dialog.js';
 export { getWebComponentFiles, getWebComponentSources, type WebComponentInstance } from './sources.js';
-export { REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from './react.js';
+export { getReactImportPath, REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from './react.js';
 export {
     importWebComponent,
     isManifestFile,

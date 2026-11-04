@@ -13,13 +13,13 @@ import type {
 export const DECORATION_TYPES: readonly WebComponentSettingType[] = ['header', 'staticText', 'divider'];
 
 /**
- * What is wrong with the manifest a module exports, or null if it can be used
+ * What is wrong with a manifest, or null if it can be used
  *
- * @param manifest what the module exports as `manifest`
+ * @param manifest the content of a manifest file, or what a module exports as `manifest`
  */
 export function checkManifest(manifest: unknown): string | null {
-    if (!manifest || typeof manifest !== 'object') {
-        return 'the module exports no manifest';
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+        return 'no manifest';
     }
     const m = manifest as Partial<WebComponentManifest>;
     if (m.manifestVersion !== 1) {
@@ -30,6 +30,9 @@ export function checkManifest(manifest: unknown): string | null {
     }
     if (!m.name) {
         return 'name is missing';
+    }
+    if (m.module !== undefined && (typeof m.module !== 'string' || !m.module)) {
+        return 'module must be the URL of the ES module, relative to the manifest file';
     }
     if (m.size !== undefined) {
         const size = m.size as Partial<WebComponentSize> | null;
@@ -96,17 +99,18 @@ export function getText(text: WebComponentText | undefined | null, lang: ioBroke
 }
 
 /**
- * Resolve a URL the manifest gives relative to the module, like `icon`
+ * Resolve a URL the manifest gives, like `icon`: relative to the manifest file - `url` of the loaded component,
+ * which for an older component is its module
  *
  * @param url as written in the manifest
- * @param moduleUrl absolute URL of the module
+ * @param baseUrl absolute URL of the manifest file
  */
-export function resolveManifestUrl(url: string | undefined, moduleUrl: string): string | undefined {
+export function resolveManifestUrl(url: string | undefined, baseUrl: string): string | undefined {
     if (!url) {
         return undefined;
     }
     try {
-        return new URL(url, moduleUrl).href;
+        return new URL(url, baseUrl).href;
     } catch {
         return url;
     }

@@ -15,11 +15,15 @@ export {
 } from './manifest.js';
 export { getDefaultSettings, getPanelSettingTypes, getSettingTypes, toSettings, toSettingValue } from './settings.js';
 export { DIALOG_CLOSE_EVENT, isFormDialog, NAVIGATE_EVENT } from './dialog.js';
-export { getWebComponentSources, type WebComponentInstance } from './sources.js';
+export { getWebComponentFiles, getWebComponentSources, type WebComponentInstance } from './sources.js';
 export { REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from './react.js';
 export {
+    importWebComponent,
+    isManifestFile,
     loadWebComponent,
     loadWebComponents,
+    readWebComponentManifests,
     type LoadWebComponentOptions,
     type WebComponentImporter,
+    type WebComponentManifestReader,
 } from './loader.js';

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
-import { loadWebComponent, loadWebComponents } from '../build/index.js';
+import { importWebComponent, loadWebComponent, loadWebComponents } from '../build/index.js';
 
 /** Let the microtasks and the answers of the fake socket run */
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -385,6 +385,35 @@ describe('IobWebComponent', () => {
         el.remove();
     });
 
+    it('takes over what the host set before the module defined the element', async () => {
+        const socket = fakeSocket();
+        const el = document.createElement('test-early');
+        // a host that does not wait for the module
+        el.socket = socket;
+        el.settings = { oid: 'a.0.x' };
+        el.theme = 'dark';
+        document.body.appendChild(el);
+        const element = await import('../build/element.js');
+        defineWebComponent(
+            'test-early',
+            class extends element.IobWebComponent {
+                getStateIds(settings) {
+                    return [settings.oid];
+                }
+
+                render() {
+                    this.textContent = `${this.theme}:${this.states[this.settings.oid]?.val ?? '-'}`;
+                }
+            },
+        );
+        await tick();
+        await tick();
+        assert.equal(Object.prototype.hasOwnProperty.call(el, 'settings'), false);
+        assert.deepEqual(socket.subscribed(), ['a.0.x']);
+        assert.equal(el.textContent, 'dark:1');
+        el.remove();
+    });
+
     it('defines a tag only once', () => {
         assert.doesNotThrow(() => defineWebComponent({ tag: 'test-tile' }, class extends HTMLElement {}));
         assert.equal(customElements.get('test-tile'), TestTile);
@@ -405,7 +434,116 @@ describe('IobWebComponent', () => {
                 settings: { type: 'panel', items: {} },
             };
             const loaded = await loadWebComponent(source, { importer: async () => ({ manifest }) });
-            assert.deepEqual(loaded, { ...source, manifest });
+            assert.deepEqual(loaded, { ...source, manifest, moduleUrl: source.url });
+        });
+
+        it('reads a manifest file and imports nothing', async () => {
+            const manifest = {
+                manifestVersion: 1,
+                tag: 'test-lazy',
+                name: 'Lazy',
+                module: 'lazy/test-lazy.js',
+                settings: { type: 'panel', items: {} },
+            };
+            const read = [];
+            const imported = [];
+            const json = {
+                url: 'http://host/adapter/demo/webcomponents/test-lazy.json',
+                adapter: 'demo',
+                version: '1',
+            };
+            const loaded = await loadWebComponent(json, {
+                readManifest: async url => {
+                    read.push(url);
+                    return manifest;
+                },
+                importer: async url => {
+                    imported.push(url);
+                    return {};
+                },
+            });
+            assert.deepEqual(read, [json.url]);
+            assert.deepEqual(imported, []);
+            assert.equal(loaded.moduleUrl, 'http://host/adapter/demo/webcomponents/lazy/test-lazy.js');
+            assert.equal(customElements.get('test-lazy'), undefined);
+        });
+
+        it('says why it ignores a manifest file', async () => {
+            const messages = log();
+            const json = { url: 'http://host/a.json', adapter: 'demo', version: '1' };
+            const settings = { type: 'panel', items: {} };
+            const read = content => ({ readManifest: async () => content, log: messages });
+            assert.equal(
+                await loadWebComponent(json, read({ manifestVersion: 1, tag: 'a-b', name: 'x', settings })),
+                null,
+            );
+            assert.equal(await loadWebComponent(json, read([])), null);
+            assert.equal(
+                await loadWebComponent(json, {
+                    readManifest: async () => {
+                        throw new Error('HTTP 404');
+                    },
+                    log: messages,
+                }),
+                null,
+            );
+            assert.match(messages.messages[0], /module is missing/);
+            assert.match(messages.messages[1], /no manifest/);
+            assert.match(messages.messages[2], /HTTP 404/);
+        });
+
+        it('imports the module of a component once, when the host shows it', async () => {
+            const component = {
+                url: 'http://host/b.json',
+                adapter: 'demo',
+                version: '1',
+                moduleUrl: 'http://host/once.js',
+                manifest: {
+                    manifestVersion: 1,
+                    tag: 'test-once',
+                    name: 'Once',
+                    settings: { type: 'panel', items: {} },
+                },
+            };
+            let imports = 0;
+            const importer = async () => {
+                imports++;
+                customElements.define('test-once', class extends HTMLElement {});
+                return {};
+            };
+            await Promise.all([
+                importWebComponent(component, { importer }),
+                importWebComponent(component, { importer }),
+            ]);
+            await importWebComponent(component, { importer });
+            assert.equal(imports, 1);
+            assert.ok(customElements.get('test-once'));
+        });
+
+        it('rejects a module that does not define its tag, and tries it again later', async () => {
+            const component = {
+                url: 'http://host/c.json',
+                adapter: 'demo',
+                version: '1',
+                moduleUrl: 'http://host/later.js',
+                manifest: {
+                    manifestVersion: 1,
+                    tag: 'test-later',
+                    name: 'Later',
+                    settings: { type: 'panel', items: {} },
+                },
+            };
+            await assert.rejects(
+                importWebComponent(component, { importer: async () => ({}) }),
+                /does not define <test-later>/,
+            );
+            await importWebComponent(component, {
+                importer: async () => {
+                    customElements.define('test-later', class extends HTMLElement {});
+                    return {};
+                },
+            });
+            assert.ok(customElements.get('test-later'));
         });
 
         it('says why it ignores a module', async () => {

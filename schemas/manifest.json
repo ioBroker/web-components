@@ -1,0 +1,193 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://raw.githubusercontent.com/ioBroker/web-components/main/schemas/manifest.json",
+    "title": "Manifest of an ioBroker web component",
+    "description": "Describes a web component (@iobroker/web-components): its element, its name and its settings. Listed in common.webComponents of the io-package.json, relative to the admin folder of the adapter",
+    "type": "object",
+    "required": ["manifestVersion", "tag", "name", "module", "settings"],
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "manifestVersion": {
+            "description": "Version of the contract",
+            "const": 1
+        },
+        "tag": {
+            "description": "Name of the custom element: lower case, with a \"-\"",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9._]*-[a-z0-9._-]*$"
+        },
+        "name": {
+            "description": "Name of the component, e.g. for a palette",
+            "$ref": "#/definitions/text"
+        },
+        "description": {
+            "$ref": "#/definitions/text"
+        },
+        "icon": {
+            "description": "Picture of the component: a data: URL, or a URL relative to this file",
+            "type": "string",
+            "minLength": 1
+        },
+        "module": {
+            "description": "The ES module that defines the element, relative to this file. A host imports it only when it shows the element",
+            "type": "string",
+            "minLength": 1
+        },
+        "size": {
+            "description": "The size the element looks best in. A host gives it to a new instance",
+            "type": "object",
+            "required": ["width", "height"],
+            "additionalProperties": false,
+            "properties": {
+                "width": {
+                    "description": "In px",
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "height": {
+                    "description": "In px",
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                },
+                "noResize": {
+                    "description": "The component works in exactly this size only: the host shows it so and lets nobody resize it",
+                    "type": "boolean"
+                }
+            }
+        },
+        "settings": {
+            "description": "The settings, in JSON-Config: a panel, or tabs of panels",
+            "oneOf": [
+                {
+                    "$ref": "#/definitions/panel"
+                },
+                {
+                    "type": "object",
+                    "required": ["type", "items"],
+                    "properties": {
+                        "type": {
+                            "const": "tabs"
+                        },
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/panel"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "definitions": {
+        "text": {
+            "description": "A text, or the same text in several languages",
+            "oneOf": [
+                {
+                    "type": "string",
+                    "minLength": 1
+                },
+                {
+                    "type": "object",
+                    "required": ["en"],
+                    "properties": {
+                        "en": { "type": "string" },
+                        "de": { "type": "string" },
+                        "ru": { "type": "string" },
+                        "pt": { "type": "string" },
+                        "nl": { "type": "string" },
+                        "fr": { "type": "string" },
+                        "it": { "type": "string" },
+                        "es": { "type": "string" },
+                        "pl": { "type": "string" },
+                        "uk": { "type": "string" },
+                        "zh-cn": { "type": "string" }
+                    },
+                    "additionalProperties": false
+                }
+            ]
+        },
+        "panel": {
+            "type": "object",
+            "required": ["type", "items"],
+            "properties": {
+                "type": {
+                    "const": "panel"
+                },
+                "label": {
+                    "$ref": "#/definitions/text"
+                },
+                "items": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/setting"
+                    }
+                }
+            }
+        },
+        "setting": {
+            "description": "One field. Only the types every host can show; other attributes of JSON-Config are allowed and may be ignored by a host",
+            "type": "object",
+            "required": ["type"],
+            "properties": {
+                "type": {
+                    "enum": [
+                        "text",
+                        "password",
+                        "number",
+                        "slider",
+                        "checkbox",
+                        "color",
+                        "select",
+                        "objectId",
+                        "instance",
+                        "header",
+                        "staticText",
+                        "divider"
+                    ]
+                },
+                "label": { "$ref": "#/definitions/text" },
+                "help": { "$ref": "#/definitions/text" },
+                "text": { "$ref": "#/definitions/text" },
+                "default": {
+                    "type": ["string", "number", "boolean"]
+                },
+                "min": { "type": "number" },
+                "max": { "type": "number" },
+                "step": { "type": "number" },
+                "minRows": { "type": "integer", "minimum": 1 },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["value", "label"],
+                        "properties": {
+                            "value": { "type": ["string", "number", "boolean"] },
+                            "label": { "$ref": "#/definitions/text" }
+                        }
+                    }
+                },
+                "adapter": { "type": "string" },
+                "types": {
+                    "description": "objectId: objects of these types only, state if missing",
+                    "anyOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }]
+                },
+                "root": {
+                    "description": "objectId: this object and the ones below it only",
+                    "type": "string"
+                },
+                "hidden": {
+                    "description": "JS expression over data, the values of all settings",
+                    "type": "string"
+                },
+                "disabled": {
+                    "description": "JS expression over data, the values of all settings",
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

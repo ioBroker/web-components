@@ -6,42 +6,76 @@ connection to ioBroker and the values of the settings.
 
 This package is the contract between the two sides, plus what both would otherwise write themselves:
 
-| Entry                                      | For               | What                                                          |
-|--------------------------------------------|-------------------|---------------------------------------------------------------|
-| `@iobroker/web-components`                 | hosts             | types, checking a manifest, settings values, finding, loading |
-| `@iobroker/web-components/element`         | component authors | base class `IobWebComponent`, `defineWebComponent`, dialogs   |
-| `@iobroker/web-components/esm/react-19.js` | web, admin        | React 19 as one ES module, served as `/lib/esm/react-19.js`   |
-| `@iobroker/web-components/esm/react-18.js` | web, admin        | React 18 as one ES module, served as `/lib/esm/react-18.js`   |
+| Entry                                            | For               | What                                                          |
+|--------------------------------------------------|-------------------|---------------------------------------------------------------|
+| `@iobroker/web-components`                       | hosts             | types, checking a manifest, settings values, finding, loading |
+| `@iobroker/web-components/element`               | component authors | base class `IobWebComponent`, `defineWebComponent`, dialogs   |
+| `@iobroker/web-components/esm/react-19.js`       | web, admin        | React 19 as one ES module, served as `/lib/esm/react-19.js`   |
+| `@iobroker/web-components/esm/react-18.js`       | web, admin        | React 18 as one ES module, served as `/lib/esm/react-18.js`   |
+| `@iobroker/web-components/schemas/manifest.json` | authors, checkers | JSON schema of a manifest file                                |
 
 The main entry touches no DOM while it is imported, so a host can use it in Node as well (tests, a backend
-that checks manifests). `element` defines a class that extends `HTMLElement` and needs a browser.
+that reads or checks manifests). `element` defines a class that extends `HTMLElement` and needs a browser.
 
-## The module of a component
+## The manifest and the module
 
-One ES module per component. When it is imported it
+A component is two files side by side in the admin folder of its adapter:
 
-1. registers its custom element - once only, `defineWebComponent` guards against a second import,
-2. exports `manifest`, a plain JSON-serializable object.
+| File           | What                                                             |
+|----------------|------------------------------------------------------------------|
+| `my-tile.json` | the manifest: tag, name, icon, size, settings - and the module   |
+| `my-tile.js`   | the ES module that registers the custom element                  |
+
+The manifest is plain JSON, so everyone can read it without running code of the component: a host for its palette
+and its settings, a backend, the repochecker, an editor with the schema. A host imports the module only when it
+shows the element.
+
+```json
+{
+    "$schema": "https://raw.githubusercontent.com/ioBroker/web-components/main/schemas/manifest.json",
+    "manifestVersion": 1,
+    "tag": "iob-state-tile",
+    "name": { "en": "State tile", "de": "Zustandskachel" },
+    "description": { "en": "...", "de": "..." },
+    "icon": "iob-state-tile.svg",
+    "module": "iob-state-tile.js",
+    "size": { "width": 180, "height": 110 },
+    "settings": {
+        "type": "panel",
+        "items": {
+            "oid": { "type": "objectId", "label": { "en": "State", "de": "Datenpunkt" } },
+            "decimals": { "type": "number", "label": "Decimals", "min": 0, "max": 6, "default": 1 },
+            "toggle": { "type": "checkbox", "label": "Toggle on click", "default": true },
+            "textTrue": { "type": "text", "label": "Text for true", "hidden": "!data.toggle" }
+        }
+    }
+}
+```
+
+| Key           |                                                                                  |
+|---------------|----------------------------------------------------------------------------------|
+| `tag`         | name of the custom element: lower case, with a `-`                               |
+| `description` | optional                                                                         |
+| `icon`        | optional: relative to the manifest file, or a `data:` URL                        |
+| `module`      | the ES module that registers the element, relative to the manifest file          |
+| `size`        | optional: the size the element looks best in, in px                              |
+| `settings`    | JSON-Config: a panel, or tabs of panels                                          |
+
+The schema is `@iobroker/web-components/schemas/manifest.json`; `checkManifest()` checks the same in code.
+
+The module registers its element - once only, `defineWebComponent` guards against a second import:
 
 ```js
-export const manifest = {
-    manifestVersion: 1,
-    tag: 'iob-state-tile',                       // name of the custom element: lower case, with a "-"
-    name: { en: 'State tile', de: 'Zustandskachel' },
-    description: { en: '...', de: '...' },        // optional
-    icon: 'iob-state-tile.svg',                  // optional: relative to the module, or a data: URL
-    size: { width: 180, height: 110 },           // optional: the size the element looks best in, in px
-    settings: {                                   // JSON-Config: a panel, or tabs of panels
-        type: 'panel',
-        items: {
-            oid: { type: 'objectId', label: { en: 'State', de: 'Datenpunkt' } },
-            decimals: { type: 'number', label: 'Decimals', min: 0, max: 6, default: 1 },
-            toggle: { type: 'checkbox', label: 'Toggle on click', default: true },
-            textTrue: { type: 'text', label: 'Text for true', hidden: '!data.toggle' },
-        },
-    },
-};
+import { defineWebComponent } from '@iobroker/web-components/element';
+
+defineWebComponent('iob-state-tile', StateTile);
 ```
+
+A component whose manifest is made in its source - e.g. with the translations of its adapter - lets its build write
+the JSON file. It may still export the manifest from the module as `manifest`.
+
+Up to 0.2.0 the module was the only file and exported its `manifest`. Such a module still works: a host imports it
+at once to read the manifest.
 
 A host gives a new instance the `size`, and the user may resize it. A component that works in exactly this size
 only says so with `noResize`: the host then shows it so and lets nobody resize it.
@@ -99,14 +133,8 @@ The rules for a component:
 The base class takes care of the first two rules:
 
 ```js
+// my-value.js - its manifest my-value.json names it as "module"
 import { IobWebComponent, defineWebComponent } from '@iobroker/web-components/element';
-
-export const manifest = {
-    manifestVersion: 1,
-    tag: 'my-value',
-    name: 'Value',
-    settings: { type: 'panel', items: { oid: { type: 'objectId', label: 'State' } } },
-};
 
 class MyValue extends IobWebComponent {
     constructor() {
@@ -127,7 +155,7 @@ class MyValue extends IobWebComponent {
     }
 }
 
-defineWebComponent(manifest, MyValue);
+defineWebComponent('my-value', MyValue);
 ```
 
 `this.states` and `this.objects` hold what the subscribed IDs have, `this.setState(id, val)` writes through the
@@ -281,7 +309,7 @@ class MyTile extends IobWebComponent {
     }
 }
 
-defineWebComponent(manifest, MyTile);
+defineWebComponent('my-tile', MyTile);
 ```
 
 What to know about the shared React:
@@ -300,36 +328,66 @@ What to know about the shared React:
 
 ## How a host finds and shows the components
 
-An adapter lists its components in `common.webComponents` of its `io-package.json`, as module URLs relative to
-its admin folder. Admin and web both serve that folder as `/adapter/<adapter>/`, so every host loads them from
-the same place:
+An adapter lists its components in `common.webComponents` of its `io-package.json`: the manifest files, relative to
+its admin folder. Admin and web both serve that folder as `/adapter/<adapter>/`, so every host loads them from the
+same place; the file storage of ioBroker has it as `<adapter>.admin`.
 
 ```json
 "common": {
-    "webComponents": ["webcomponents/my-tile.js"]
+    "webComponents": ["webcomponents/my-tile.json"]
 }
 ```
 
 ```ts
-import { getWebComponentSources, loadWebComponents, getSettingTypes, toSettings } from '@iobroker/web-components';
+import {
+    getSettingTypes,
+    getWebComponentSources,
+    importWebComponent,
+    loadWebComponents,
+    toSettings,
+} from '@iobroker/web-components';
 
-const instances = Object.values(await socket.getObjectViewSystem('instance', 'system.adapter.', 'system.adapter.香'));
+const instances = Object.values(await socket.getObjectViewSystem('instance', 'system.adapter.', 'system.adapter.\u9999'));
+// the manifests only - for the palette and the settings; no code of a component runs
 const components = await loadWebComponents(getWebComponentSources(instances, document.baseURI));
 
-// show one
-const { manifest } = components[0];
-const el = document.createElement(manifest.tag);
+// show one: its module first, so that the element has its class when it gets its properties
+const component = components[0];
+await importWebComponent(component);
+const el = document.createElement(component.manifest.tag);
 el.socket = socket;
-el.settings = toSettings(getSettingTypes(manifest), storedValues);
+el.settings = toSettings(getSettingTypes(component.manifest), storedValues);
 container.appendChild(el);
 ```
+
+`importWebComponent` imports a module once, however often it is asked, and rejects if the module does not define
+the tag of the manifest. A host creates the element only after that; the base class would take over properties
+set earlier, a component without it might not.
 
 `getWebComponentSources` finds `/adapter/` from the address of the host: next to its folder (`/vis-2/`), at the
 root, or - for a host that is an admin tab like `/adapter/devices/tab.html` - next to its own adapter folder. A path
 prefix of a reverse proxy stays.
 
 `getDefaultSettings(manifest)` gives the values for a new instance, `getSettingsGroups(manifest)` the panels
-to render, `checkManifest(manifest)` what is wrong with one.
+to render, `resolveManifestUrl(manifest.icon, component.url)` the icon, `checkManifest(manifest)` what is wrong
+with one.
+
+### Without web or admin
+
+A host that is served neither by web nor by admin, and a backend, read the manifests from the file storage:
+
+```ts
+import { getWebComponentFiles, readWebComponentManifests } from '@iobroker/web-components';
+
+// [{ adapter: 'flow', version, id: 'flow.admin', fileName: 'webcomponents/flow-diagram.json' }]
+const files = getWebComponentFiles(instances);
+const manifests = await readWebComponentManifests(files, async (id, fileName) =>
+    (await adapter.readFileAsync(id, fileName)).file.toString(),
+);
+```
+
+That is enough for a palette and the settings. To show an element, a browser still needs the module at a URL: the
+host serves the admin folder of the adapter itself, or its page is served by web.
 
 ## Open points
 
@@ -344,6 +402,18 @@ to render, `checkManifest(manifest)` what is wrong with one.
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) (breaking) A component is described by a manifest file (`.json`) next to its module, named in
+  `common.webComponents`; the manifest gives the module as `module`. Hosts, backends and the repochecker read it
+  without running code of the component. A module that exports its manifest still works
+- (@GermanBluefox) `loadWebComponents` reads the manifests only; `importWebComponent()` imports the module of a
+  component once, when the host shows it. `LoadedWebComponent` got `moduleUrl`
+- (@GermanBluefox) Added `getWebComponentFiles()` and `readWebComponentManifests()`: the manifests from the file
+  storage of ioBroker, for a host without web or admin and for a backend
+- (@GermanBluefox) Added the JSON schema of a manifest file: `@iobroker/web-components/schemas/manifest.json`
+- (@GermanBluefox) `defineWebComponent()` takes the tag alone, and the base class takes over properties a host set
+  before the element was defined
+
 ### 0.2.0 (2026-11-04)
 - (@GermanBluefox) Added dialogs: the optional host property `dialogs`, `openDialog()` in the base class with the
   `<dialog>` of the browser as fallback (`openNativeDialog()`), and `isFormDialog()`, `getPanelSettingTypes()` and

@@ -7,7 +7,10 @@ import {
     getSettingsGroups,
     getSettingTypes,
     getText,
+    getWebComponentFiles,
     getWebComponentSources,
+    isManifestFile,
+    readWebComponentManifests,
     resolveManifestUrl,
     toSettings,
     toSettingValue,
@@ -52,6 +55,20 @@ describe('checkManifest', () => {
         assert.match(checkManifest({ ...MANIFEST, name: '' }), /name/);
         assert.match(checkManifest({ ...MANIFEST, settings: { type: 'table' } }), /JSON-Config/);
         assert.match(checkManifest({ ...MANIFEST, settings: { type: 'panel' } }), /no items/);
+        assert.match(checkManifest([]), /no manifest/);
+        assert.match(checkManifest({ ...MANIFEST, module: '' }), /module/);
+        assert.match(checkManifest({ ...MANIFEST, module: 42 }), /module/);
+    });
+
+    it('accepts the module of a manifest file and the schema of an editor', () => {
+        assert.equal(
+            checkManifest({
+                $schema: 'https://raw.githubusercontent.com/ioBroker/web-components/main/schemas/manifest.json',
+                ...MANIFEST,
+                module: 'tile.js',
+            }),
+            null,
+        );
     });
 
     it('checks the size', () => {
@@ -198,6 +215,20 @@ describe('getWebComponentSources', () => {
         );
     });
 
+    it('takes manifest files and modules alike', () => {
+        assert.deepEqual(
+            getWebComponentSources(
+                [instance('system.adapter.demo.0', ['wc/tile.json', 'old.js'])],
+                'http://host/vis-2/',
+            ).map(source => source.url),
+            ['http://host/adapter/demo/wc/tile.json', 'http://host/adapter/demo/old.js'],
+        );
+        assert.equal(isManifestFile('http://host/adapter/demo/wc/tile.json'), true);
+        assert.equal(isManifestFile('http://host/adapter/demo/wc/tile.JSON?v=1'), true);
+        assert.equal(isManifestFile('http://host/adapter/demo/old.js'), false);
+        assert.equal(isManifestFile('http://host/adapter/demo/json.js#x.json'), false);
+    });
+
     it('lists a module of several instances of one adapter once', () => {
         assert.equal(
             getWebComponentSources(
@@ -206,5 +237,50 @@ describe('getWebComponentSources', () => {
             ).length,
             1,
         );
+    });
+});
+
+describe('getWebComponentFiles / readWebComponentManifests', () => {
+    const instance = (id, webComponents) => ({ _id: id, common: { version: '1.2.3', webComponents } });
+
+    it('finds the manifest files in the file storage of the admin folder', () => {
+        assert.deepEqual(
+            getWebComponentFiles([
+                instance('system.adapter.demo.0', ['webcomponents/tile.json', './other.json', 'old.js']),
+                instance('system.adapter.demo.1', ['webcomponents/tile.json']),
+                instance('system.adapter.evil.0', ['../../demo.admin/x.json', 'https://cdn.example/x.json']),
+                instance('system.adapter.none.0'),
+            ]),
+            [
+                { adapter: 'demo', version: '1.2.3', id: 'demo.admin', fileName: 'webcomponents/tile.json' },
+                { adapter: 'demo', version: '1.2.3', id: 'demo.admin', fileName: 'other.json' },
+            ],
+        );
+    });
+
+    it('reads them without a browser', async () => {
+        const errors = [];
+        const files = getWebComponentFiles([instance('system.adapter.demo.0', ['a.json', 'b.json', 'c.json'])]);
+        const content = {
+            'a.json': JSON.stringify({ ...MANIFEST, module: 'a.js' }),
+            'b.json': '{ broken',
+            'c.json': JSON.stringify({ ...MANIFEST, tag: 'nodash' }),
+        };
+        const read = [];
+        const manifests = await readWebComponentManifests(
+            files,
+            async (id, fileName) => {
+                read.push(`${id}/${fileName}`);
+                return content[fileName];
+            },
+            { error: message => errors.push(message) },
+        );
+        assert.deepEqual(read, ['demo.admin/a.json', 'demo.admin/b.json', 'demo.admin/c.json']);
+        assert.equal(manifests.length, 1);
+        assert.equal(manifests[0].manifest.module, 'a.js');
+        assert.equal(manifests[0].file.fileName, 'a.json');
+        assert.equal(errors.length, 2);
+        assert.match(errors[0], /demo.admin\/b.json/);
+        assert.match(errors[1], /custom element/);
     });
 });

@@ -8,9 +8,8 @@
  * - several changes in one task are drawn once.
  *
  * ```js
+ * // my-value.js - its manifest is my-value.json next to it, with "module": "my-value.js"
  * import { IobWebComponent, defineWebComponent } from '@iobroker/web-components/element';
- *
- * export const manifest = { manifestVersion: 1, tag: 'my-value', name: 'Value', settings: { ... } };
  *
  * class MyValue extends IobWebComponent {
  *     getStateIds(settings) {
@@ -21,7 +20,7 @@
  *     }
  * }
  *
- * defineWebComponent(manifest, MyValue);
+ * defineWebComponent('my-value', MyValue);
  * ```
  *
  * This module defines a class that extends `HTMLElement`, so it can only be imported where there is a DOM.
@@ -56,6 +55,9 @@ interface Subscription {
 function toIds(ids: (string | undefined | null)[]): string[] {
     return [...new Set(ids.filter((id): id is string => typeof id === 'string' && !!id))];
 }
+
+/** The properties a host sets, see `WebComponentElement` */
+const HOST_PROPERTIES = ['socket', 'dialogs', 'theme', 'editMode', 'settings'] as const;
 
 export abstract class IobWebComponent<
     TSettings extends WebComponentSettings = WebComponentSettings,
@@ -154,6 +156,15 @@ export abstract class IobWebComponent<
     }
 
     connectedCallback(): void {
+        // a host that set a property before the module defined the element left it on the object, where it hides
+        // the property of the class: hand it to the class
+        for (const name of HOST_PROPERTIES) {
+            if (Object.prototype.hasOwnProperty.call(this, name)) {
+                const value = (this as Record<string, unknown>)[name];
+                delete (this as Record<string, unknown>)[name];
+                (this as Record<string, unknown>)[name] = value;
+            }
+        }
         this.#update();
     }
 
@@ -378,14 +389,18 @@ export abstract class IobWebComponent<
 }
 
 /**
- * Register the element of a component under the tag of its manifest - once only, a second import of the module
- * (another version, another host on the same page) leaves the first definition in place
+ * Register the element of a component under its tag - once only, a second import of the module (another version,
+ * another host on the same page) leaves the first definition in place
  *
- * @param manifest the manifest of the component
+ * @param tag the tag of the manifest, or the manifest itself
  * @param element the class of the element
  */
-export function defineWebComponent(manifest: WebComponentManifest, element: CustomElementConstructor): void {
-    if (!customElements.get(manifest.tag)) {
-        customElements.define(manifest.tag, element);
+export function defineWebComponent(
+    tag: string | Pick<WebComponentManifest, 'tag'>,
+    element: CustomElementConstructor,
+): void {
+    const name = typeof tag === 'string' ? tag : tag.tag;
+    if (!customElements.get(name)) {
+        customElements.define(name, element);
     }
 }

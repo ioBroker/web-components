@@ -1,15 +1,17 @@
 /**
  * Where the web components of the installed adapters are
  *
- * An adapter lists its components in `common.webComponents` of its io-package.json, as URLs of ES modules
- * relative to its admin folder. Admin and web both serve that folder as `/adapter/<name>/`, so every host loads
- * them from the same place:
+ * An adapter lists its components in `common.webComponents` of its io-package.json: the manifest files, relative
+ * to its admin folder. Admin and web both serve that folder as `/adapter/<name>/`, so every host loads them from
+ * the same place; the file storage of ioBroker has them as `<name>.admin`, for a host that has neither:
  *
  * ```json
- * "common": { "webComponents": ["webcomponents/my-tile.js"] }
+ * "common": { "webComponents": ["webcomponents/my-tile.json"] }
  * ```
+ *
+ * An entry may also be a module that exports its manifest (`.js`), as before 0.3.0.
  */
-import type { WebComponentSource } from './types.js';
+import type { WebComponentFile, WebComponentSource } from './types.js';
 
 /** The part of an instance object this module reads */
 export interface WebComponentInstance {
@@ -68,4 +70,36 @@ export function getWebComponentSources(instances: WebComponentInstance[], baseUr
         }
     }
     return sources;
+}
+
+/**
+ * The manifest files of the instances in the file storage of ioBroker - for a host that is served neither by web
+ * nor by admin, or for a backend. An entry that is a module (`.js`) or leaves the admin folder is left out.
+ *
+ * @param instances the instance objects, e.g. of `getObjectViewSystem('instance', ...)`
+ */
+export function getWebComponentFiles(instances: WebComponentInstance[]): WebComponentFile[] {
+    const files: WebComponentFile[] = [];
+    const folder = 'http://host/admin/';
+    for (const instance of instances) {
+        const list = instance?.common?.webComponents;
+        if (!Array.isArray(list)) {
+            continue;
+        }
+        const adapter = getAdapterName(instance._id);
+        for (const entry of list) {
+            if (typeof entry !== 'string' || !/\.json$/i.test(entry)) {
+                continue;
+            }
+            const url = new URL(entry, folder);
+            if (!url.href.startsWith(folder)) {
+                continue;
+            }
+            const fileName = decodeURIComponent(url.pathname.substring('/admin/'.length));
+            if (!files.some(file => file.adapter === adapter && file.fileName === fileName)) {
+                files.push({ adapter, version: instance.common.version || '', id: `${adapter}.admin`, fileName });
+            }
+        }
+    }
+    return files;
 }

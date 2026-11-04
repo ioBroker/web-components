@@ -94,6 +94,8 @@ export interface WebComponentSize {
 }
 
 export interface WebComponentManifest {
+    /** Optional: the JSON schema of a manifest file, for editors - `@iobroker/web-components/schemas/manifest.json` */
+    $schema?: string;
     /** Version of this contract, 1 for now */
     manifestVersion: 1;
     /** Name of the custom element: lower case, must contain a `-` */
@@ -101,8 +103,13 @@ export interface WebComponentManifest {
     /** Name of the component, e.g. for a palette */
     name: WebComponentText;
     description?: WebComponentText;
-    /** Picture of the component: a `data:` URL or a URL relative to the module */
+    /** Picture of the component: a `data:` URL or a URL relative to the manifest file */
     icon?: string;
+    /**
+     * The ES module that defines the element, relative to the manifest file. A host imports it only when it shows
+     * the element. Required in a manifest file; a module that exports its manifest leaves it out
+     */
+    module?: string;
     /** The size the element looks best in. A host uses it for a new instance */
     size?: WebComponentSize;
     /** The settings of the component, in JSON-Config */
@@ -205,14 +212,14 @@ export interface WebComponentElement extends HTMLElement {
     dialogs?: WebComponentDialogs | null;
 }
 
-/** What the module of a web component exports */
+/** What the module of a web component may export: older components bring their manifest so, not as a file */
 export interface WebComponentModule {
     manifest?: WebComponentManifest;
 }
 
-/** Where the module of a web component is */
+/** Where a web component is described */
 export interface WebComponentSource {
-    /** Absolute URL of the module */
+    /** Absolute URL of the manifest file (`.json`), or of a module that exports its manifest (`.js`) */
     url: string;
     /** The adapter that brings it, or empty if the host brings it itself */
     adapter: string;
@@ -220,7 +227,24 @@ export interface WebComponentSource {
     version: string;
 }
 
-/** A web component that was found and loaded: its element is defined */
+/**
+ * A web component whose manifest was read. Its element is defined only after `importWebComponent()` - a component
+ * that comes as a module exporting its manifest, at once
+ */
 export interface LoadedWebComponent extends WebComponentSource {
     manifest: WebComponentManifest;
+    /** Absolute URL of the module that defines the element */
+    moduleUrl: string;
+}
+
+/** A file of the manifest of a component in the file storage of ioBroker - readable without web or admin */
+export interface WebComponentFile {
+    /** The adapter that brings it */
+    adapter: string;
+    /** Version of that adapter */
+    version: string;
+    /** The file storage of its admin folder: `<adapter>.admin` */
+    id: string;
+    /** Path of the file in it, e.g. `webcomponents/my-tile.json` */
+    fileName: string;
 }

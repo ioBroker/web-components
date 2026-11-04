@@ -412,7 +412,7 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.4.0 (2026-11-04)
 - (@GermanBluefox) Added `getObjectViewSystem` to `WebComponentSocket`: a component finds the objects of one type
   in a range of IDs, e.g. the players of an instance. `Connection` of `@iobroker/socket-client` has it already, so
   vis-2, devices and admin pass it on unchanged

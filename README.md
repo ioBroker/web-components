@@ -402,7 +402,7 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.3.0 (2026-11-04)
 - (@GermanBluefox) (breaking) A component is described by a manifest file (`.json`) next to its module, named in
   `common.webComponents`; the manifest gives the module as `module`. Hosts, backends and the repochecker read it
   without running code of the component. A module that exports its manifest still works

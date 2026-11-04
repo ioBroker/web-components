@@ -8,6 +8,11 @@
  * The host then sets two properties on the element:
  * - `socket`: the connection to ioBroker, see {@link WebComponentSocket}
  * - `settings`: the values of the settings the manifest describes, a new object on every change
+ *
+ * and, if it has them, two optional ones: `theme` and `editMode`, see {@link WebComponentElement}.
+ *
+ * To tell the host something, the element dispatches a `CustomEvent` that bubbles, is composed and can be
+ * cancelled; a host that calls `preventDefault()` answers it itself.
  */
 
 /** A text in one or several languages, like `common.name` of an object */
@@ -71,6 +76,16 @@ export interface WebComponentSettingsTabs {
     items: Record<string, WebComponentSettingsPanel>;
 }
 
+/** The size a component looks best in */
+export interface WebComponentSize {
+    /** In px */
+    width: number;
+    /** In px */
+    height: number;
+    /** The component works in exactly this size only: the host shows it so and lets nobody resize it */
+    noResize?: boolean;
+}
+
 export interface WebComponentManifest {
     /** Version of this contract, 1 for now */
     manifestVersion: 1;
@@ -81,11 +96,14 @@ export interface WebComponentManifest {
     description?: WebComponentText;
     /** Picture of the component: a `data:` URL or a URL relative to the module */
     icon?: string;
-    /** The size the element looks best in, in px. A host may use it for a new instance */
-    size?: { width: number; height: number };
+    /** The size the element looks best in. A host uses it for a new instance */
+    size?: WebComponentSize;
     /** The settings of the component, in JSON-Config */
     settings: WebComponentSettingsPanel | WebComponentSettingsTabs;
 }
+
+/** Called with the new object, or `null` when it was deleted */
+export type WebComponentObjectChangeHandler = (id: string, obj: ioBroker.Object | null | undefined) => void;
 
 /**
  * The part of `Connection` (`@iobroker/socket-client`) a web component may rely on. Every host has such a
@@ -98,15 +116,28 @@ export interface WebComponentSocket {
     getState(id: string): Promise<ioBroker.State | null | undefined>;
     setState(id: string, val: ioBroker.StateValue | ioBroker.SettableState, ack?: boolean): Promise<void>;
     getObject(id: string): Promise<ioBroker.Object | null | undefined>;
+    subscribeObject(id: string | string[], cb: WebComponentObjectChangeHandler): Promise<void>;
+    unsubscribeObject(id: string | string[], cb?: WebComponentObjectChangeHandler): Promise<void>;
+    getHistory(id: string, options: ioBroker.GetHistoryOptions): Promise<ioBroker.GetHistoryResult>;
 }
 
 /** The values of the settings as the element gets them, keyed by the names in `items` */
 export type WebComponentSettings = Record<string, string | number | boolean | undefined>;
 
+/** The theme of the host, for what a component cannot take from the inherited CSS */
+export type WebComponentTheme = 'light' | 'dark';
+
 /** The element as the host sees it */
 export interface WebComponentElement extends HTMLElement {
     socket?: WebComponentSocket | null;
     settings?: WebComponentSettings;
+    /** Optional: the theme of the host, `light` if the host does not set it */
+    theme?: WebComponentTheme;
+    /**
+     * Optional: true while the user arranges the page in the editor of the host. The element then writes no
+     * states and reacts to no clicks, and may show sample data where settings are still missing
+     */
+    editMode?: boolean;
 }
 
 /** What the module of a web component exports */

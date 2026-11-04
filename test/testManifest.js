@@ -53,6 +53,16 @@ describe('checkManifest', () => {
         assert.match(checkManifest({ ...MANIFEST, settings: { type: 'table' } }), /JSON-Config/);
         assert.match(checkManifest({ ...MANIFEST, settings: { type: 'panel' } }), /no items/);
     });
+
+    it('checks the size', () => {
+        assert.equal(checkManifest({ ...MANIFEST, size: { width: 400, height: 300 } }), null);
+        assert.equal(checkManifest({ ...MANIFEST, size: { width: 400, height: 300, noResize: true } }), null);
+        assert.match(checkManifest({ ...MANIFEST, size: { width: 400 } }), /width and a height/);
+        assert.match(checkManifest({ ...MANIFEST, size: { width: '400px', height: 300 } }), /width and a height/);
+        assert.match(checkManifest({ ...MANIFEST, size: { width: 0, height: 300 } }), /width and a height/);
+        assert.match(checkManifest({ ...MANIFEST, size: null }), /width and a height/);
+        assert.match(checkManifest({ ...MANIFEST, size: { width: 400, height: 300, noResize: 'yes' } }), /noResize/);
+    });
 });
 
 describe('getSettingsGroups', () => {

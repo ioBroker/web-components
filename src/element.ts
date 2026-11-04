@@ -2,9 +2,9 @@
  * Base class for ioBroker web components
  *
  * Takes over what every component would otherwise have to get right itself:
- * - `socket` and `settings` may arrive in any order and change at any time,
- * - the states the settings name are subscribed while the element is in the document, re-subscribed when the
- *   settings or the socket change, and unsubscribed when it leaves the document,
+ * - `socket`, `settings`, `theme` and `editMode` may arrive in any order and change at any time,
+ * - the states and objects the settings name are subscribed while the element is in the document, re-subscribed
+ *   when the settings or the socket change, and unsubscribed when it leaves the document,
  * - several changes in one task are drawn once.
  *
  * ```js
@@ -28,11 +28,25 @@
  * Hosts import the main entry `@iobroker/web-components` instead.
  */
 import { getText } from './manifest.js';
-import type { WebComponentManifest, WebComponentSettings, WebComponentSocket, WebComponentText } from './types.js';
+import type {
+    WebComponentManifest,
+    WebComponentSettings,
+    WebComponentSocket,
+    WebComponentText,
+    WebComponentTheme,
+} from './types.js';
 
 interface Subscription {
     socket: WebComponentSocket;
-    ids: string[];
+    /** The subscribed states */
+    states: string[];
+    /** The subscribed objects */
+    objects: string[];
+}
+
+/** The IDs without empty entries and doubles */
+function toIds(ids: (string | undefined | null)[]): string[] {
+    return [...new Set(ids.filter((id): id is string => typeof id === 'string' && !!id))];
 }
 
 export abstract class IobWebComponent<
@@ -41,20 +55,34 @@ export abstract class IobWebComponent<
     /** The values of the subscribed states, by ID; `null` while a state has no value */
     protected states: Record<string, ioBroker.State | null> = {};
 
-    /** The objects of the subscribed states, by ID; read once per subscription, `null` if there is none */
+    /**
+     * The objects by ID, `null` if there is none: those of `getObjectIds` kept up to date, those of the states of
+     * `getStateIds` read once per subscription
+     */
     protected objects: Record<string, ioBroker.Object | null> = {};
 
     #socket: WebComponentSocket | null = null;
 
     #settings: TSettings = {} as TSettings;
 
+    #theme: WebComponentTheme = 'light';
+
+    #editMode = false;
+
     #subscription: Subscription | null = null;
 
     #renderPending = false;
 
     #onStateChange = (id: string, state: ioBroker.State | null | undefined): void => {
-        if (this.#subscription?.ids.includes(id)) {
+        if (this.#subscription?.states.includes(id)) {
             this.states[id] = state || null;
+            this.#scheduleRender();
+        }
+    };
+
+    #onObjectChange = (id: string, obj: ioBroker.Object | null | undefined): void => {
+        if (this.#subscription?.objects.includes(id)) {
+            this.objects[id] = obj || null;
             this.#scheduleRender();
         }
     };
@@ -79,6 +107,32 @@ export abstract class IobWebComponent<
         this.#update();
     }
 
+    /** The theme of the host, `light` if the host sets none */
+    get theme(): WebComponentTheme {
+        return this.#theme;
+    }
+
+    set theme(theme: WebComponentTheme | null | undefined) {
+        const value: WebComponentTheme = theme === 'dark' ? 'dark' : 'light';
+        if (value !== this.#theme) {
+            this.#theme = value;
+            this.#scheduleRender();
+        }
+    }
+
+    /** True while the user arranges the page in the editor of the host: write nothing, react to no clicks */
+    get editMode(): boolean {
+        return this.#editMode;
+    }
+
+    set editMode(editMode: boolean | null | undefined) {
+        const value = !!editMode;
+        if (value !== this.#editMode) {
+            this.#editMode = value;
+            this.#scheduleRender();
+        }
+    }
+
     connectedCallback(): void {
         this.#update();
     }
@@ -96,7 +150,17 @@ export abstract class IobWebComponent<
         return [];
     }
 
-    /** Draw the element. Called after every change of the socket, the settings, a state or an object */
+    /**
+     * The objects the element shows for these settings, kept up to date in `objects` (e.g. a diagram that is
+     * edited elsewhere). The objects of the states of `getStateIds` need not be listed: they are read anyway.
+     *
+     * @param _settings the current settings
+     */
+    protected getObjectIds(_settings: TSettings): (string | undefined | null)[] {
+        return [];
+    }
+
+    /** Draw the element. Called after every change of the socket, the settings, a state, an object or the theme */
     protected abstract render(): void;
 
     /** The language of the ioBroker system, `en` while there is no socket. Not `lang`: that is the HTML attribute */
@@ -114,13 +178,25 @@ export abstract class IobWebComponent<
     }
 
     /**
-     * Write a state; does nothing without a socket
+     * Write a state; does nothing without a socket and in edit mode
      *
      * @param id ID of the state
      * @param val the new value
      */
     protected setState(id: string, val: ioBroker.StateValue): Promise<void> {
-        return this.#socket ? this.#socket.setState(id, val) : Promise.resolve();
+        return this.#socket && !this.#editMode ? this.#socket.setState(id, val) : Promise.resolve();
+    }
+
+    /**
+     * Tell the host something, e.g. a click it may want to answer with a dialog of its own: dispatches a
+     * `CustomEvent` that bubbles out of the shadow DOM and can be cancelled
+     *
+     * @param type name of the event, with a `-` like a tag: `flow-node-click`
+     * @param detail what the host needs to know
+     * @returns false if the host called `preventDefault()`: it answers itself, the element does nothing more
+     */
+    protected emit(type: string, detail?: unknown): boolean {
+        return this.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true, cancelable: true }));
     }
 
     /** Subscribe what the settings name now and unsubscribe the rest, then draw */
@@ -129,39 +205,49 @@ export abstract class IobWebComponent<
             return;
         }
         const socket = this.#socket;
-        const wanted = socket
-            ? [
-                  ...new Set(
-                      this.getStateIds(this.#settings).filter((id): id is string => typeof id === 'string' && !!id),
-                  ),
-              ]
-            : [];
+        const states = socket ? toIds(this.getStateIds(this.#settings)) : [];
+        const objects = socket ? toIds(this.getObjectIds(this.#settings)) : [];
 
         if (this.#subscription && this.#subscription.socket !== socket) {
             this.#unsubscribe();
         }
-        const current = this.#subscription?.ids || [];
-        const removed = current.filter(id => !wanted.includes(id));
-        const added = wanted.filter(id => !current.includes(id));
+        const currentStates = this.#subscription?.states || [];
+        const currentObjects = this.#subscription?.objects || [];
+        const removedStates = currentStates.filter(id => !states.includes(id));
+        const removedObjects = currentObjects.filter(id => !objects.includes(id));
+        const addedStates = states.filter(id => !currentStates.includes(id));
+        const addedObjects = objects.filter(id => !currentObjects.includes(id));
 
-        if (socket && removed.length) {
-            socket.unsubscribeState(removed, this.#onStateChange);
-            for (const id of removed) {
-                delete this.states[id];
+        if (socket && removedStates.length) {
+            socket.unsubscribeState(removedStates, this.#onStateChange);
+        }
+        if (socket && removedObjects.length) {
+            this.#unsubscribeObjects(socket, removedObjects);
+        }
+        for (const id of removedStates) {
+            delete this.states[id];
+        }
+        for (const id of [...removedStates, ...removedObjects]) {
+            if (!states.includes(id) && !objects.includes(id)) {
                 delete this.objects[id];
             }
         }
-        this.#subscription = socket && wanted.length ? { socket, ids: wanted } : null;
-        if (socket && added.length) {
-            this.#subscribe(socket, added);
+
+        this.#subscription = socket && (states.length || objects.length) ? { socket, states, objects } : null;
+        if (socket && addedStates.length) {
+            this.#subscribeStates(socket, addedStates);
+        }
+        if (socket && addedObjects.length) {
+            this.#subscribeObjects(socket, addedObjects);
         }
         this.#scheduleRender();
     }
 
-    #subscribe(socket: WebComponentSocket, ids: string[]): void {
-        const stillWanted = (id: string): boolean =>
-            this.#subscription?.socket === socket && this.#subscription.ids.includes(id);
+    #isSubscribed(socket: WebComponentSocket, kind: 'states' | 'objects', id: string): boolean {
+        return this.#subscription?.socket === socket && this.#subscription[kind].includes(id);
+    }
 
+    #subscribeStates(socket: WebComponentSocket, ids: string[]): void {
         socket
             .subscribeState(ids, this.#onStateChange)
             .catch(e => console.warn(`<${this.localName}>: cannot subscribe ${ids.join(', ')}: ${e}`));
@@ -171,7 +257,7 @@ export abstract class IobWebComponent<
             socket
                 .getState(id)
                 .then(state => {
-                    if (stillWanted(id) && this.states[id] === undefined) {
+                    if (this.#isSubscribed(socket, 'states', id) && this.states[id] === undefined) {
                         this.states[id] = state || null;
                         this.#scheduleRender();
                     }
@@ -180,7 +266,8 @@ export abstract class IobWebComponent<
             socket
                 .getObject(id)
                 .then(obj => {
-                    if (stillWanted(id)) {
+                    // a subscribed object is kept up to date by its subscription
+                    if (this.#isSubscribed(socket, 'states', id) && !this.#isSubscribed(socket, 'objects', id)) {
                         this.objects[id] = obj || null;
                         this.#scheduleRender();
                     }
@@ -189,9 +276,38 @@ export abstract class IobWebComponent<
         }
     }
 
+    #subscribeObjects(socket: WebComponentSocket, ids: string[]): void {
+        socket
+            .subscribeObject(ids, this.#onObjectChange)
+            .catch(e => console.warn(`<${this.localName}>: cannot subscribe the objects ${ids.join(', ')}: ${e}`));
+
+        // a subscription delivers changes only, not the object as it is now
+        for (const id of ids) {
+            socket
+                .getObject(id)
+                .then(obj => {
+                    if (this.#isSubscribed(socket, 'objects', id)) {
+                        this.objects[id] = obj || null;
+                        this.#scheduleRender();
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+
+    #unsubscribeObjects(socket: WebComponentSocket, ids: string[]): void {
+        socket.unsubscribeObject(ids, this.#onObjectChange).catch(() => {});
+    }
+
     #unsubscribe(): void {
         if (this.#subscription) {
-            this.#subscription.socket.unsubscribeState(this.#subscription.ids, this.#onStateChange);
+            const { socket, states, objects } = this.#subscription;
+            if (states.length) {
+                socket.unsubscribeState(states, this.#onStateChange);
+            }
+            if (objects.length) {
+                this.#unsubscribeObjects(socket, objects);
+            }
             this.#subscription = null;
         }
         this.states = {};

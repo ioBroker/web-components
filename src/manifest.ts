@@ -5,6 +5,7 @@ import type {
     WebComponentManifest,
     WebComponentSettingsPanel,
     WebComponentSettingType,
+    WebComponentSize,
     WebComponentText,
 } from './types.js';
 
@@ -29,6 +30,16 @@ export function checkManifest(manifest: unknown): string | null {
     }
     if (!m.name) {
         return 'name is missing';
+    }
+    if (m.size !== undefined) {
+        const size = m.size as Partial<WebComponentSize> | null;
+        const isPx = (value: unknown): boolean => typeof value === 'number' && Number.isFinite(value) && value > 0;
+        if (!size || typeof size !== 'object' || !isPx(size.width) || !isPx(size.height)) {
+            return 'size needs a width and a height in px';
+        }
+        if (size.noResize !== undefined && typeof size.noResize !== 'boolean') {
+            return 'size.noResize must be true or false';
+        }
     }
     const settings = m.settings as { type?: string; items?: unknown } | undefined;
     if (!settings || (settings.type !== 'panel' && settings.type !== 'tabs')) {

@@ -29,7 +29,7 @@ export const manifest = {
     name: { en: 'State tile', de: 'Zustandskachel' },
     description: { en: '...', de: '...' },        // optional
     icon: 'iob-state-tile.svg',                  // optional: relative to the module, or a data: URL
-    size: { width: 180, height: 110 },           // optional: the size the element looks best in
+    size: { width: 180, height: 110 },           // optional: the size the element looks best in, in px
     settings: {                                   // JSON-Config: a panel, or tabs of panels
         type: 'panel',
         items: {
@@ -40,6 +40,13 @@ export const manifest = {
         },
     },
 };
+```
+
+A host gives a new instance the `size`, and the user may resize it. A component that works in exactly this size
+only says so with `noResize`: the host then shows it so and lets nobody resize it.
+
+```js
+size: { width: 400, height: 300, noResize: true },
 ```
 
 `settings` is [JSON-Config](https://github.com/ioBroker/ioBroker.admin/blob/master/packages/jsonConfig/README.md),
@@ -55,28 +62,34 @@ and `disabled` are JS expressions over `data`, the values of all settings.
 
 ## The element
 
-The host sets two **properties**, not attributes:
+The host sets two **properties**, not attributes, and two optional ones if it has them:
 
 | Property   | What                                                                                        |
 |------------|---------------------------------------------------------------------------------------------|
 | `socket`   | `Connection` of `@iobroker/socket-client` - every host already has one                      |
 | `settings` | the values of the settings, keyed by the names in `items`; a **new object** on every change |
+| `theme`    | optional: `light` or `dark`, the theme of the host; `light` if the host does not set it     |
+| `editMode` | optional: `true` while the user arranges the page in the editor of the host                 |
 
 The values are in one object, not in a property each, because many names a setting would have are taken by
 `HTMLElement` already: `title`, `lang`, `hidden`, `id`, `style`, ...
 
 The rules for a component:
 
-- It works in any order: `settings` before `socket`, `socket` before `settings`, both changing at any time.
+- It works in any order: `settings` before `socket`, `socket` before `settings`, all of them changing at any time.
+  Without a socket it waits for one; it never opens a connection of its own.
 - It subscribes while it is in the document and unsubscribes when it leaves. Of the socket it uses only
-  `subscribeState`, `unsubscribeState`, `getState`, `setState`, `getObject` and `systemLang`
-  (`WebComponentSocket`).
+  `subscribeState`, `unsubscribeState`, `getState`, `setState`, `getObject`, `subscribeObject`,
+  `unsubscribeObject`, `getHistory` and `systemLang` (`WebComponentSocket`).
 - A value has the type its setting declares: a number for `number` and `slider`, a boolean for `checkbox`, a
   string otherwise. A setting without a value is missing from the object.
 - It fills the box the host gives it (`:host { display: block; width: 100%; height: 100% }`) and never measures
   itself - it scales with container queries (`container-type: size`, `cqmin`).
-- It inherits `color` and `font` from the host, so it follows the theme of the host. Shadow DOM keeps its own
-  styles in and the styles of the host out.
+- It has a transparent background and inherits `color` and `font` from the host, so it follows the theme of the
+  host. Shadow DOM keeps its own styles in and the styles of the host out; `theme` is for what CSS cannot carry,
+  like the colors of a chart.
+- In `editMode` it writes no states and reacts to no clicks - the host needs them to select and move it. Where
+  settings are still missing, it may show sample data.
 - It brings everything it needs; a component built with Lit or Svelte bundles its framework, one built with React
   may take React from the host (see [Frameworks in components](#frameworks-in-components)).
 
@@ -115,7 +128,31 @@ defineWebComponent(manifest, MyValue);
 ```
 
 `this.states` and `this.objects` hold what the subscribed IDs have, `this.setState(id, val)` writes through the
-socket, `this.text(...)` translates into `this.systemLang`.
+socket (not in edit mode), `this.text(...)` translates into `this.systemLang`. The objects of the states are read
+once; `getObjectIds(settings)` names objects to keep up to date, like a diagram that is edited elsewhere.
+`this.theme` and `this.editMode` are what the host set, and a change of them draws again as well.
+
+## Events to the host
+
+To tell the host something - a click on a part of it, a value the user picked - a component dispatches a
+`CustomEvent` that `bubbles`, is `composed` (so it leaves the shadow DOM) and is `cancelable`. A host that answers
+it itself, e.g. with a dialog of its own, calls `preventDefault()`, and the component does nothing more:
+
+```js
+// in the component - with the base class: this.emit(type, detail)
+if (this.emit('flow-node-click', { node: 'pv' })) {
+    this.showPopup('pv'); // nobody answered it
+}
+
+// in the host
+el.addEventListener('flow-node-click', e => {
+    e.preventDefault();
+    showDialog(e.detail);
+});
+```
+
+The name of an event contains a `-`, like a tag, so it never clashes with an event of the DOM. A host often clips
+what leaves the box of a component, so a popup is usually better shown by the host.
 
 ## Frameworks in components
 
@@ -236,8 +273,7 @@ to render, `checkManifest(manifest)` what is wrong with one.
 ## Open points
 
 - Size in a grid (sections of vis-2, cards of devices), and whether a component can ask its host for another size.
-- Optional host properties: theme beyond inherited CSS, edit mode.
-- Events from the component to the host ("open my dialog", "navigate").
+- Which events a host can bind to actions of its own (navigate to a view), and whether the manifest lists them.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
 - The shared React behind a reverse proxy with a path prefix (an import map of the host could point it elsewhere).
 
@@ -250,6 +286,10 @@ to render, `checkManifest(manifest)` what is wrong with one.
 - (@GermanBluefox) Initial release: the contract, helpers for hosts and the base class `IobWebComponent`
 - (@GermanBluefox) Added `build/esm/react-19.js` - React 19 as one ES module for web and admin to serve as
   `/lib/esm/react-19.js` - with `REACT_19_URL` and `REACT_SPECIFIERS` for the build of a React component
+- (@GermanBluefox) Added `subscribeObject`, `unsubscribeObject` and `getHistory` to `WebComponentSocket`, and
+  `getObjectIds()` to the base class for objects that are kept up to date
+- (@GermanBluefox) Added the optional host properties `theme` and `editMode`, `size.noResize`, and events to the
+  host (`emit()` in the base class)
 
 ## License
 MIT License

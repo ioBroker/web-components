@@ -10,12 +10,31 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 /** A socket that keeps what was asked of it */
 function fakeSocket(systemLang = 'de') {
     const handlers = {};
+    const objectHandlers = {};
     const values = { 'a.0.x': { val: 1, ack: true }, 'a.0.y': { val: true, ack: true } };
     const calls = [];
     return {
         systemLang,
         calls,
         handlers,
+        subscribeObject(ids, cb) {
+            ids = [].concat(ids);
+            calls.push(['subscribeObject', ...ids]);
+            ids.forEach(id => (objectHandlers[id] ||= new Set()).add(cb));
+            return Promise.resolve();
+        },
+        unsubscribeObject(ids, cb) {
+            ids = [].concat(ids);
+            calls.push(['unsubscribeObject', ...ids]);
+            ids.forEach(id => objectHandlers[id]?.delete(cb));
+            return Promise.resolve();
+        },
+        emitObject(id, obj) {
+            objectHandlers[id]?.forEach(cb => cb(id, obj));
+        },
+        subscribedObjects() {
+            return Object.keys(objectHandlers).filter(id => objectHandlers[id].size);
+        },
         subscribeState(ids, cb) {
             ids = [].concat(ids);
             calls.push(['subscribe', ...ids]);
@@ -48,6 +67,7 @@ function fakeSocket(systemLang = 'de') {
 
 describe('IobWebComponent', () => {
     let TestTile;
+    let TestDiagram;
     let defineWebComponent;
 
     before(async () => {
@@ -72,8 +92,29 @@ describe('IobWebComponent', () => {
             toggle() {
                 return this.setState(this.settings.oid, !this.states[this.settings.oid]?.val);
             }
+
+            notify(detail) {
+                return this.emit('test-tile-click', detail);
+            }
         };
         defineWebComponent({ tag: 'test-tile' }, TestTile);
+
+        // shows an object that is edited elsewhere, and the name of a state
+        TestDiagram = class extends element.IobWebComponent {
+            getStateIds(settings) {
+                return [settings.oid];
+            }
+
+            getObjectIds(settings) {
+                return [settings.diagram];
+            }
+
+            render() {
+                const { diagram, oid } = this.settings;
+                this.textContent = `${this.objects[diagram]?.native?.nodes ?? '-'}|${this.text(this.objects[oid]?.common.name)}`;
+            }
+        };
+        defineWebComponent({ tag: 'test-diagram' }, TestDiagram);
     });
 
     after(async () => {
@@ -197,6 +238,118 @@ describe('IobWebComponent', () => {
         await tick();
         assert.deepEqual(socket.calls.at(-1), ['setState', 'a.0.y', false]);
         assert.equal(el.textContent, 'Name von a.0.y=false');
+        el.remove();
+    });
+
+    it('keeps the objects of getObjectIds up to date', async () => {
+        const socket = fakeSocket();
+        socket.getObject = id => Promise.resolve({ _id: id, common: { name: `Name ${id}` }, native: { nodes: 3 } });
+        const el = document.createElement('test-diagram');
+        document.body.appendChild(el);
+        el.socket = socket;
+        el.settings = { diagram: 'flow.0.diagrams.pv' };
+        await tick();
+        assert.deepEqual(socket.subscribedObjects(), ['flow.0.diagrams.pv']);
+        // a subscription delivers no object: it is read once
+        assert.equal(el.textContent, '3|');
+
+        socket.emitObject('flow.0.diagrams.pv', { _id: 'flow.0.diagrams.pv', common: {}, native: { nodes: 5 } });
+        await tick();
+        assert.equal(el.textContent, '5|');
+        // an object it does not show changes nothing
+        socket.emitObject('flow.0.diagrams.other', { native: { nodes: 9 } });
+        await tick();
+        assert.equal(el.textContent, '5|');
+
+        el.settings = { diagram: 'flow.0.diagrams.other' };
+        await tick();
+        assert.deepEqual(socket.subscribedObjects(), ['flow.0.diagrams.other']);
+        el.remove();
+        assert.deepEqual(socket.subscribedObjects(), []);
+    });
+
+    it('reads the object of a state once, but subscribes it when getObjectIds names it too', async () => {
+        const socket = fakeSocket();
+        const el = document.createElement('test-diagram');
+        document.body.appendChild(el);
+        el.socket = socket;
+        el.settings = { oid: 'a.0.x' };
+        await tick();
+        await tick();
+        assert.deepEqual(socket.subscribedObjects(), []);
+        assert.equal(el.textContent, '-|Name von a.0.x');
+
+        el.settings = { oid: 'a.0.x', diagram: 'a.0.x' };
+        await tick();
+        assert.deepEqual(socket.subscribedObjects(), ['a.0.x']);
+        socket.emitObject('a.0.x', { common: { name: 'Neu' }, native: { nodes: 1 } });
+        await tick();
+        assert.equal(el.textContent, '1|Neu');
+
+        // no longer subscribed, still a state: the object stays as it was last
+        el.settings = { oid: 'a.0.x' };
+        await tick();
+        assert.deepEqual(socket.subscribedObjects(), []);
+        assert.deepEqual(socket.subscribed(), ['a.0.x']);
+        assert.equal(el.textContent, '-|Neu');
+        el.remove();
+    });
+
+    it('takes theme and edit mode from the host and draws again', async () => {
+        const el = create();
+        await tick();
+        assert.equal(el.theme, 'light');
+        assert.equal(el.editMode, false);
+        const renders = el.renders;
+        el.theme = 'dark';
+        el.editMode = true;
+        await tick();
+        assert.equal(el.renders, renders + 1);
+        // the same values once more draw nothing
+        el.theme = 'dark';
+        el.editMode = true;
+        await tick();
+        assert.equal(el.renders, renders + 1);
+        el.theme = 'blue';
+        assert.equal(el.theme, 'light');
+        el.remove();
+    });
+
+    it('writes no state in edit mode', async () => {
+        const socket = fakeSocket();
+        const el = create();
+        el.socket = socket;
+        el.settings = { oid: 'a.0.y' };
+        el.editMode = true;
+        await tick();
+        await el.toggle();
+        assert.equal(
+            socket.calls.some(call => call[0] === 'setState'),
+            false,
+        );
+        el.editMode = false;
+        await el.toggle();
+        assert.deepEqual(socket.calls.at(-1), ['setState', 'a.0.y', false]);
+        el.remove();
+    });
+
+    it('tells the host with an event it can cancel', () => {
+        const el = create();
+        const got = [];
+        const listener = e => {
+            got.push([e.type, e.detail, e.bubbles, e.composed]);
+            if (e.detail.node === 'pv') {
+                e.preventDefault();
+            }
+        };
+        document.body.addEventListener('test-tile-click', listener);
+        assert.equal(el.notify({ node: 'battery' }), true);
+        assert.equal(el.notify({ node: 'pv' }), false);
+        assert.deepEqual(got, [
+            ['test-tile-click', { node: 'battery' }, true, true],
+            ['test-tile-click', { node: 'pv' }, true, true],
+        ]);
+        document.body.removeEventListener('test-tile-click', listener);
         el.remove();
     });
 

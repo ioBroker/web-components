@@ -106,6 +106,7 @@ The host sets two **properties**, not attributes, and optional ones if it has th
 | `theme`    | optional: the colors and the font of the host, see [Theme](#theme)                          |
 | `editMode` | optional: `true` while the user arranges the page in the editor of the host                 |
 | `dialogs`  | optional: dialogs in the look of the host, see [Dialogs](#dialogs)                          |
+| `value`    | optional: the value the component edits, from a host that stores one, see [Values](#values) |
 
 The values are in one object, not in a property each, because many names a setting would have are taken by
 `HTMLElement` already: `title`, `lang`, `hidden`, `id`, `style`, ...
@@ -161,7 +162,8 @@ defineWebComponent('my-value', MyValue);
 ```
 
 `this.states` and `this.objects` hold what the subscribed IDs have, `this.setState(id, val)` writes through the
-socket (not in edit mode), `this.text(...)` translates into `this.systemLang`. The objects of the states are read
+socket (not in edit mode), `this.text(...)` translates into `this.systemLang`, `this.value` and
+`this.changeValue(value)` are the [value](#values) the component edits. The objects of the states are read
 once; `getObjectIds(settings)` names objects to keep up to date, like a diagram that is edited elsewhere.
 `getStateIds` may read those objects - the states a diagram names - and is asked again whenever one of them arrives
 or changes. `this.theme` is the theme of the host, always complete, and `this.editMode` what the host set; a change
@@ -251,6 +253,49 @@ Events every host understands:
 |-------------------------------------------|-----------------------|---------------------------------------------------------------------|
 | `iob-navigate` (`NAVIGATE_EVENT`)         | `{ view: 'Heating' }` | shows its view of that name if it has views, ignores the event else |
 | `iob-dialog-close` (`DIALOG_CLOSE_EVENT`) | the result            | closes the element dialog, see below                                |
+| `iob-change` (`CHANGE_EVENT`)             | the new value         | stores it if it stores values, see [Values](#values)                |
+
+## Values
+
+Most components show something. Some edit a value as well - a schedule, a list of times, a color, a place on a map -
+and are shown by a host that keeps such values: JSON-Config in admin and devices, where the value is the attribute
+of its item in the configuration of an instance. The value is not one of the `settings`: those say how the
+component looks and works and are set by whoever places it; the value is what the user edits with it.
+
+- The host sets the property `value`: JSON, any type the component needs. A host without values (vis-2) does not
+  set it.
+- The component changes it with the event `iob-change` (`CHANGE_EVENT`), whose `detail` is the new value - JSON, so
+  the host can save it. A host that stores values stores it and calls `preventDefault()`; the component then takes
+  the new value as its `value` itself. A host without values ignores the event, and so does a host whose field is
+  disabled at the moment - the value stays as it was.
+- The host sets `value` again whenever the stored value differs from the one the component has: changed by another
+  field, or stored otherwise than sent - a limit, a confirmation the user declined. After the component's own
+  change it does not.
+- It reports a change when the user is done - a slider is let go, a dialog is closed - not on every move: the host
+  checks every value, may ask the user to confirm it and marks the configuration as changed. Until then the
+  component shows what the user does from its own state.
+- In edit mode it changes nothing.
+
+The value belongs to the host, as with a controlled field: the base class changes `this.value` only when the host
+took the new one.
+
+```js
+class MySchedule extends IobWebComponent {
+    render() {
+        const bars = Array.isArray(this.value) ? this.value : [];
+        // ... draw the bars
+    }
+
+    #onDragEnd(bars) {
+        if (!this.changeValue(bars)) {
+            // nobody stores it: e.g. vis-2. The bars jump back
+        }
+    }
+}
+```
+
+Without the base class, a component defines `value` itself and dispatches the event like any other (bubbling,
+composed, cancelable): `dispatchEvent()` returns `false` when the host took it.
 
 ## Dialogs
 
@@ -461,6 +506,8 @@ host serves the admin folder of the adapter itself, or its page is served by web
 
 - Size in a grid (sections of vis-2, cards of devices), and whether a component can ask its host for another size.
 - Which other events a host can bind to actions of its own, and whether the manifest lists them.
+- Whether the manifest says that a component edits a value, so that a host without values (vis-2) can leave it out
+  of its palette.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
 
 ## Changelog
@@ -468,6 +515,12 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) Added values: a component that edits a value - in JSON-Config the attribute of its item - gets it
+  from the host as the optional property `value` and changes it with the event `iob-change` (`CHANGE_EVENT`), whose
+  `detail` is the new value. The base class has `this.value` and `changeValue()`, which changes the value only when
+  the host took it. A host without values ignores the event
+
 ### 0.5.0 (2026-11-05)
 - (@GermanBluefox) (breaking) `theme` is an object with the colors and the font of the host: `primary`, `secondary`,
   `background`, `paper`, `text`, `divider`, the colors of a state, `fontFamily`, `fontSize`, `borderRadius` and

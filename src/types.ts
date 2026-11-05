@@ -9,7 +9,7 @@
  * - `socket`: the connection to ioBroker, see {@link WebComponentSocket}
  * - `settings`: the values of the settings the manifest describes, a new object on every change
  *
- * and, if it has them, optional ones: `theme`, `editMode` and `dialogs`, see {@link WebComponentElement}.
+ * and, if it has them, optional ones: `theme`, `editMode`, `dialogs` and `value`, see {@link WebComponentElement}.
  *
  * To tell the host something, the element dispatches a `CustomEvent` that bubbles, is composed and can be
  * cancelled; a host that calls `preventDefault()` answers it itself.
@@ -266,6 +266,13 @@ export interface WebComponentElement extends HTMLElement {
     editMode?: boolean;
     /** Optional: dialogs in the look of the host; without them a component takes the `<dialog>` of the browser */
     dialogs?: WebComponentDialogs | null;
+    /**
+     * Optional: the value the component edits, for a host that stores one - in JSON-Config the value of the
+     * attribute of its item. JSON. The component changes it with the event `iob-change` (`CHANGE_EVENT`) and takes
+     * the new value itself when the host took it; the host sets `value` again only when the stored value differs
+     * from it - changed by another field, or stored otherwise than sent (a limit, a confirmation the user declined)
+     */
+    value?: unknown;
 }
 
 /** What the module of a web component may export: older components bring their manifest so, not as a file */

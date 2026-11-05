@@ -2,11 +2,12 @@
  * Base class for ioBroker web components
  *
  * Takes over what every component would otherwise have to get right itself:
- * - `socket`, `settings`, `theme` and `editMode` may arrive in any order and change at any time,
+ * - `socket`, `settings`, `theme`, `editMode` and `value` may arrive in any order and change at any time,
  * - the theme is always complete and also set as CSS variables (`--iob-primary`, ...) on the element,
  * - the states and objects the settings name are subscribed while the element is in the document, re-subscribed
  *   when the settings or the socket change, and unsubscribed when it leaves the document,
- * - several changes in one task are drawn once.
+ * - several changes in one task are drawn once,
+ * - a value the host stores changes only when the host took it (`changeValue()`).
  *
  * ```js
  * // my-value.js - its manifest is my-value.json next to it, with "module": "my-value.js"
@@ -27,7 +28,7 @@
  * This module defines a class that extends `HTMLElement`, so it can only be imported where there is a DOM.
  * Hosts import the main entry `@iobroker/web-components` instead.
  */
-import { isFormDialog } from './dialog.js';
+import { CHANGE_EVENT, isFormDialog } from './dialog.js';
 import { getText } from './manifest.js';
 import { openNativeDialog } from './nativeDialog.js';
 import { getPanelSettingTypes, toSettings } from './settings.js';
@@ -61,10 +62,11 @@ function toIds(ids: (string | undefined | null)[]): string[] {
 }
 
 /** The properties a host sets, see `WebComponentElement` */
-const HOST_PROPERTIES = ['socket', 'dialogs', 'theme', 'editMode', 'settings'] as const;
+const HOST_PROPERTIES = ['socket', 'dialogs', 'theme', 'editMode', 'settings', 'value'] as const;
 
 export abstract class IobWebComponent<
     TSettings extends WebComponentSettings = WebComponentSettings,
+    TValue = unknown,
 > extends HTMLElement {
     /** The values of the subscribed states, by ID; `null` while a state has no value */
     protected states: Record<string, ioBroker.State | null> = {};
@@ -84,6 +86,8 @@ export abstract class IobWebComponent<
     #editMode = false;
 
     #dialogs: WebComponentDialogs | null = null;
+
+    #value: TValue | undefined = undefined;
 
     #subscription: Subscription | null = null;
 
@@ -165,6 +169,21 @@ export abstract class IobWebComponent<
         this.#dialogs = dialogs || null;
     }
 
+    /**
+     * The value the element edits, set by a host that stores one (JSON-Config: the value of the attribute of its
+     * item); `undefined` in a host without values. Change it with `changeValue()`
+     */
+    get value(): TValue | undefined {
+        return this.#value;
+    }
+
+    set value(value: TValue | undefined) {
+        if (value !== this.#value) {
+            this.#value = value;
+            this.#scheduleRender();
+        }
+    }
+
     connectedCallback(): void {
         // a host that set a property before the module defined the element left it on the object, where it hides
         // the property of the class: hand it to the class
@@ -231,6 +250,25 @@ export abstract class IobWebComponent<
      */
     protected setState(id: string, val: ioBroker.StateValue): Promise<void> {
         return this.#socket && !this.#editMode ? this.#socket.setState(id, val) : Promise.resolve();
+    }
+
+    /**
+     * Change the value the element edits: tells the host with the event `iob-change`. A host that stores values
+     * takes it, and then it is `value` and the element draws again. A host without values ignores it, and `value`
+     * stays as it is. Does nothing in edit mode.
+     *
+     * Report a change when the user is done - when a slider is let go, not on every move: the host checks every
+     * value, may ask the user and marks the configuration as changed.
+     *
+     * @param value the new value, JSON
+     * @returns true if the host took the value
+     */
+    protected changeValue(value: TValue): boolean {
+        if (this.#editMode || this.emit(CHANGE_EVENT, value)) {
+            return false;
+        }
+        this.value = value;
+        return true;
     }
 
     /**

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
-import { importWebComponent, loadWebComponent, loadWebComponents } from '../build/index.js';
+import { CHANGE_EVENT, importWebComponent, loadWebComponent, loadWebComponents } from '../build/index.js';
 
 /** Let the microtasks and the answers of the fake socket run */
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -95,6 +95,10 @@ describe('IobWebComponent', () => {
 
             notify(detail) {
                 return this.emit('test-tile-click', detail);
+            }
+
+            edit(value) {
+                return this.changeValue(value);
             }
         };
         defineWebComponent({ tag: 'test-tile' }, TestTile);
@@ -400,6 +404,62 @@ describe('IobWebComponent', () => {
         el.remove();
     });
 
+    it('takes the value from the host and draws again', async () => {
+        const el = create();
+        await tick();
+        assert.equal(el.value, undefined);
+        const renders = el.renders;
+        el.value = { from: 8, to: 20 };
+        await tick();
+        assert.equal(el.renders, renders + 1);
+        assert.deepEqual(el.value, { from: 8, to: 20 });
+        // the same value draws nothing
+        el.value = el.value;
+        await tick();
+        assert.equal(el.renders, renders + 1);
+        el.remove();
+    });
+
+    it('changes the value only when the host takes it', async () => {
+        const el = create();
+        el.value = 1;
+        await tick();
+        const got = [];
+        let store = false;
+        const listener = e => {
+            got.push([e.type, e.detail, e.bubbles, e.composed, e.cancelable]);
+            if (store) {
+                e.preventDefault();
+            }
+        };
+        document.body.addEventListener(CHANGE_EVENT, listener);
+
+        // a host without values ignores the event: the value stays
+        assert.equal(el.edit(2), false);
+        assert.equal(el.value, 1);
+
+        // a host that stores values takes it
+        store = true;
+        const renders = el.renders;
+        assert.equal(el.edit(3), true);
+        assert.equal(el.value, 3);
+        await tick();
+        assert.equal(el.renders, renders + 1);
+        assert.deepEqual(got, [
+            ['iob-change', 2, true, true, true],
+            ['iob-change', 3, true, true, true],
+        ]);
+
+        // nothing in edit mode
+        el.editMode = true;
+        assert.equal(el.edit(4), false);
+        assert.equal(el.value, 3);
+        assert.equal(got.length, 2);
+
+        document.body.removeEventListener(CHANGE_EVENT, listener);
+        el.remove();
+    });
+
     it('takes over what the host set before the module defined the element', async () => {
         const socket = fakeSocket();
         const el = document.createElement('test-early');
@@ -407,6 +467,7 @@ describe('IobWebComponent', () => {
         el.socket = socket;
         el.settings = { oid: 'a.0.x' };
         el.theme = 'dark';
+        el.value = 7;
         document.body.appendChild(el);
         const element = await import('../build/element.js');
         defineWebComponent(
@@ -417,15 +478,16 @@ describe('IobWebComponent', () => {
                 }
 
                 render() {
-                    this.textContent = `${this.theme.type}:${this.states[this.settings.oid]?.val ?? '-'}`;
+                    this.textContent = `${this.theme.type}:${this.states[this.settings.oid]?.val ?? '-'}:${this.value}`;
                 }
             },
         );
         await tick();
         await tick();
         assert.equal(Object.prototype.hasOwnProperty.call(el, 'settings'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(el, 'value'), false);
         assert.deepEqual(socket.subscribed(), ['a.0.x']);
-        assert.equal(el.textContent, 'dark:1');
+        assert.equal(el.textContent, 'dark:1:7');
         el.remove();
     });
 

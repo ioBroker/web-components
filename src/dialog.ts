@@ -14,6 +14,13 @@ export const DIALOG_CLOSE_EVENT = 'iob-dialog-close';
 export const NAVIGATE_EVENT = 'iob-navigate';
 
 /**
+ * The event with which a component changes the value it edits; `detail` is the new value, JSON. A host that stores
+ * values (JSON-Config) stores it and calls `preventDefault()` - the component then takes it as its `value` itself.
+ * A host without values ignores it
+ */
+export const CHANGE_EVENT = 'iob-change';
+
+/**
  * Whether the host renders the dialog itself (a form) or frames an element of the component
  *
  * @param request what the component asked for

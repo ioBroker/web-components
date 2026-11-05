@@ -468,7 +468,7 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.5.0 (2026-11-05)
 - (@GermanBluefox) (breaking) `theme` is an object with the colors and the font of the host: `primary`, `secondary`,
   `background`, `paper`, `text`, `divider`, the colors of a state, `fontFamily`, `fontSize`, `borderRadius` and
   `type` (`light` or `dark`). Hosts built with MUI get it with `getWebComponentTheme(muiTheme)`. The base class

@@ -3,6 +3,7 @@
  *
  * Takes over what every component would otherwise have to get right itself:
  * - `socket`, `settings`, `theme` and `editMode` may arrive in any order and change at any time,
+ * - the theme is always complete and also set as CSS variables (`--iob-primary`, ...) on the element,
  * - the states and objects the settings name are subscribed while the element is in the document, re-subscribed
  *   when the settings or the socket change, and unsubscribed when it leaves the document,
  * - several changes in one task are drawn once.
@@ -30,6 +31,7 @@ import { isFormDialog } from './dialog.js';
 import { getText } from './manifest.js';
 import { openNativeDialog } from './nativeDialog.js';
 import { getPanelSettingTypes, toSettings } from './settings.js';
+import { getThemeCssVariables, isSameTheme, toWebComponentTheme } from './theme.js';
 import type {
     WebComponentDialogs,
     WebComponentElementDialog,
@@ -39,9 +41,11 @@ import type {
     WebComponentSocket,
     WebComponentText,
     WebComponentTheme,
+    WebComponentThemeType,
 } from './types.js';
 
 export { openNativeDialog, type NativeDialogOptions } from './nativeDialog.js';
+export { getThemeCssVariables, toWebComponentTheme } from './theme.js';
 
 interface Subscription {
     socket: WebComponentSocket;
@@ -75,7 +79,7 @@ export abstract class IobWebComponent<
 
     #settings: TSettings = {} as TSettings;
 
-    #theme: WebComponentTheme = 'light';
+    #theme: WebComponentTheme = toWebComponentTheme('light');
 
     #editMode = false;
 
@@ -120,15 +124,21 @@ export abstract class IobWebComponent<
         this.#update();
     }
 
-    /** The theme of the host, `light` if the host sets none */
+    /**
+     * The theme of the host, always complete: what the host left out comes from the light or dark theme of ioBroker.
+     * The element carries it as CSS variables too (`--iob-primary`, ...), see `getThemeCssVariables()`
+     */
     get theme(): WebComponentTheme {
         return this.#theme;
     }
 
-    set theme(theme: WebComponentTheme | null | undefined) {
-        const value: WebComponentTheme = theme === 'dark' ? 'dark' : 'light';
-        if (value !== this.#theme) {
+    /** A host older than the theme object sets `light` or `dark` */
+    set theme(theme: Partial<WebComponentTheme> | WebComponentThemeType | null | undefined) {
+        const value = toWebComponentTheme(theme);
+        // a host may hand over a new object with the same values on every render of its own
+        if (!isSameTheme(value, this.#theme)) {
             this.#theme = value;
+            this.#applyTheme();
             this.#scheduleRender();
         }
     }
@@ -165,6 +175,8 @@ export abstract class IobWebComponent<
                 (this as Record<string, unknown>)[name] = value;
             }
         }
+        // not in the constructor: an element created by `document.createElement()` must not get attributes there
+        this.#applyTheme();
         this.#update();
     }
 
@@ -257,6 +269,13 @@ export abstract class IobWebComponent<
                 : null;
         }
         return result ?? null;
+    }
+
+    /** The theme as CSS variables on the element: they reach into its shadow DOM */
+    #applyTheme(): void {
+        for (const [name, value] of Object.entries(getThemeCssVariables(this.#theme))) {
+            this.style.setProperty(name, value);
+        }
     }
 
     /** Subscribe what the settings name now and unsubscribe the rest, then draw */

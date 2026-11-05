@@ -330,20 +330,35 @@ describe('IobWebComponent', () => {
     it('takes theme and edit mode from the host and draws again', async () => {
         const el = create();
         await tick();
-        assert.equal(el.theme, 'light');
+        // no theme from the host: the light one of ioBroker, on the element as CSS variables too
+        assert.equal(el.theme.type, 'light');
+        assert.equal(el.theme.primary, '#3399CC');
+        assert.equal(el.style.getPropertyValue('--iob-primary'), '#3399CC');
         assert.equal(el.editMode, false);
         const renders = el.renders;
-        el.theme = 'dark';
+        el.theme = { type: 'dark', primary: '#ff0000' };
         el.editMode = true;
         await tick();
         assert.equal(el.renders, renders + 1);
-        // the same values once more draw nothing
-        el.theme = 'dark';
+        assert.equal(el.theme.primary, '#ff0000');
+        // what the host left out comes from the dark theme
+        assert.equal(el.theme.paper, '#121212');
+        assert.equal(el.style.getPropertyValue('--iob-primary'), '#ff0000');
+        assert.equal(el.style.getPropertyValue('--iob-paper'), '#121212');
+        assert.equal(el.style.getPropertyValue('--iob-font-size'), '14px');
+        // the same values in a new object draw nothing
+        el.theme = { type: 'dark', primary: '#ff0000' };
         el.editMode = true;
         await tick();
         assert.equal(el.renders, renders + 1);
+        // a host older than the theme object
+        el.theme = 'light';
+        await tick();
+        assert.equal(el.renders, renders + 2);
+        assert.equal(el.theme.primary, '#3399CC');
+        assert.equal(el.style.getPropertyValue('--iob-primary'), '#3399CC');
         el.theme = 'blue';
-        assert.equal(el.theme, 'light');
+        assert.equal(el.theme.type, 'light');
         el.remove();
     });
 
@@ -402,7 +417,7 @@ describe('IobWebComponent', () => {
                 }
 
                 render() {
-                    this.textContent = `${this.theme}:${this.states[this.settings.oid]?.val ?? '-'}`;
+                    this.textContent = `${this.theme.type}:${this.states[this.settings.oid]?.val ?? '-'}`;
                 }
             },
         );

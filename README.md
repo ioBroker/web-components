@@ -103,7 +103,7 @@ The host sets two **properties**, not attributes, and optional ones if it has th
 |------------|---------------------------------------------------------------------------------------------|
 | `socket`   | `Connection` of `@iobroker/socket-client` - every host already has one                      |
 | `settings` | the values of the settings, keyed by the names in `items`; a **new object** on every change |
-| `theme`    | optional: `light` or `dark`, the theme of the host; `light` if the host does not set it     |
+| `theme`    | optional: the colors and the font of the host, see [Theme](#theme)                          |
 | `editMode` | optional: `true` while the user arranges the page in the editor of the host                 |
 | `dialogs`  | optional: dialogs in the look of the host, see [Dialogs](#dialogs)                          |
 
@@ -125,8 +125,8 @@ The rules for a component:
 - It fills the box the host gives it (`:host { display: block; width: 100%; height: 100% }`) and never measures
   itself - it scales with container queries (`container-type: size`, `cqmin`).
 - It has a transparent background and inherits `color` and `font` from the host, so it follows the theme of the
-  host. Shadow DOM keeps its own styles in and the styles of the host out; `theme` is for what CSS cannot carry,
-  like the colors of a chart.
+  host. Shadow DOM keeps its own styles in and the styles of the host out; the [theme](#theme) brings the rest of
+  the look of the host: the primary color of a button, the background of a panel, the colors of a chart.
 - In `editMode` it writes no states, sends no command that changes something, and reacts to no clicks - the
   host needs them to select and move it. Where settings are still missing, it may show sample data.
 - It brings everything it needs; a component built with Lit or Svelte bundles its framework, one built with React
@@ -164,7 +164,64 @@ defineWebComponent('my-value', MyValue);
 socket (not in edit mode), `this.text(...)` translates into `this.systemLang`. The objects of the states are read
 once; `getObjectIds(settings)` names objects to keep up to date, like a diagram that is edited elsewhere.
 `getStateIds` may read those objects - the states a diagram names - and is asked again whenever one of them arrives
-or changes. `this.theme` and `this.editMode` are what the host set, and a change of them draws again as well.
+or changes. `this.theme` is the theme of the host, always complete, and `this.editMode` what the host set; a change
+of them draws again as well.
+
+## Theme
+
+The host sets `theme` to an object with its colors and its font. Colors are CSS colors, sizes numbers in px:
+
+| Field                                 | What                                                       |
+|---------------------------------------|------------------------------------------------------------|
+| `type`                                | `light` or `dark`                                          |
+| `primary`, `primaryContrast`          | the main color of the host (buttons, links) and text on it |
+| `secondary`, `secondaryContrast`      | the color for accents and text on it                       |
+| `background`                          | the page behind the component                              |
+| `paper`                               | panels, cards and dialogs on the page                      |
+| `text`, `textSecondary`               | text, and less important text: units, hints, labels        |
+| `divider`                             | lines between parts, borders                               |
+| `error`, `warning`, `info`, `success` | the colors of a state                                      |
+| `fontFamily`, `fontSize`              | the font of the host                                       |
+| `borderRadius`                        | the corners of buttons and fields; panels take about twice |
+
+A host built with MUI - vis-2, devices, admin - takes it from its MUI theme:
+
+```js
+import { getWebComponentTheme } from '@iobroker/web-components';
+
+el.theme = getWebComponentTheme(muiTheme); // e.g. from useTheme()
+```
+
+A host without MUI sets the fields it has; the rest comes from the light or the dark theme of ioBroker
+(`getDefaultTheme(type)`). Without any theme a component looks like the light theme of ioBroker.
+
+With the base class, `this.theme` is always complete, and the element carries the theme as CSS variables. They
+reach into its shadow DOM, so plain CSS follows the host:
+
+```css
+.panel {
+    background: var(--iob-paper);
+    border: 1px solid var(--iob-divider);
+    border-radius: calc(var(--iob-border-radius) * 2);
+}
+.unit {
+    color: var(--iob-text-secondary);
+}
+button {
+    background: var(--iob-primary);
+    color: var(--iob-primary-contrast);
+    border-radius: var(--iob-border-radius);
+}
+```
+
+`--iob-primary`, `--iob-primary-contrast`, `--iob-secondary`, `--iob-secondary-contrast`, `--iob-background`,
+`--iob-paper`, `--iob-text`, `--iob-text-secondary`, `--iob-divider`, `--iob-error`, `--iob-warning`, `--iob-info`,
+`--iob-success`, `--iob-font-family`, `--iob-font-size` and `--iob-border-radius` (with `px`), plus `color-scheme`
+for the native fields and scroll bars inside. The fallback dialog of the browser takes the theme too.
+
+The base class also takes `light` or `dark` from a host older than the object. A component without the base class
+gets the complete theme with `toWebComponentTheme(this.theme)` and the CSS variables with `getThemeCssVariables()`,
+both from `@iobroker/web-components/element` as well.
 
 ## Events to the host
 
@@ -405,13 +462,21 @@ host serves the admin folder of the adapter itself, or its page is served by web
 - Size in a grid (sections of vis-2, cards of devices), and whether a component can ask its host for another size.
 - Which other events a host can bind to actions of its own, and whether the manifest lists them.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
-- Colors of the host beyond `theme` (primary color, paper), so that the content of a dialog matches the host.
 
 ## Changelog
 <!--
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) (breaking) `theme` is an object with the colors and the font of the host: `primary`, `secondary`,
+  `background`, `paper`, `text`, `divider`, the colors of a state, `fontFamily`, `fontSize`, `borderRadius` and
+  `type` (`light` or `dark`). Hosts built with MUI get it with `getWebComponentTheme(muiTheme)`. The base class
+  completes what a host leaves out, still takes `light` or `dark` of older hosts, and sets the theme as CSS
+  variables (`--iob-primary`, ...) on the element. A component that compared `this.theme` with `'dark'` reads
+  `this.theme.type` now
+- (@GermanBluefox) The fallback dialog of the browser takes the colors and the font of the theme
+
 ### 0.4.0 (2026-11-04)
 - (@GermanBluefox) Added `getObjectViewSystem` to `WebComponentSocket`: a component finds the objects of one type
   in a range of IDs, e.g. the players of an instance. `Connection` of `@iobroker/socket-client` has it already, so

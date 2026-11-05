@@ -18,6 +18,14 @@ export { DIALOG_CLOSE_EVENT, isFormDialog, NAVIGATE_EVENT } from './dialog.js';
 export { getWebComponentFiles, getWebComponentSources, type WebComponentInstance } from './sources.js';
 export { getReactImportPath, REACT_18_URL, REACT_19_URL, REACT_SPECIFIERS } from './react.js';
 export {
+    getDefaultTheme,
+    getThemeCssVariables,
+    getWebComponentTheme,
+    isSameTheme,
+    toWebComponentTheme,
+    type MuiLikeTheme,
+} from './theme.js';
+export {
     importWebComponent,
     isManifestFile,
     loadWebComponent,

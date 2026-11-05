@@ -515,7 +515,7 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.6.0 (2026-11-05)
 - (@GermanBluefox) Added values: a component that edits a value - in JSON-Config the attribute of its item - gets it
   from the host as the optional property `value` and changes it with the event `iob-change` (`CHANGE_EVENT`), whose
   `detail` is the new value. The base class has `this.value` and `changeValue()`, which changes the value only when

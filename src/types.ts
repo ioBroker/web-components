@@ -162,8 +162,45 @@ export interface WebComponentSocket {
 /** The values of the settings as the element gets them, keyed by the names in `items` */
 export type WebComponentSettings = Record<string, string | number | boolean | undefined>;
 
-/** The theme of the host, for what a component cannot take from the inherited CSS */
-export type WebComponentTheme = 'light' | 'dark';
+/** Light or dark */
+export type WebComponentThemeType = 'light' | 'dark';
+
+/**
+ * The theme of the host: its colors and its font, for what a component cannot take from the inherited CSS - a button
+ * in the primary color, a panel on the page, the colors of a chart, text drawn into a canvas. Colors are CSS colors.
+ * A host built with MUI gets it with `getWebComponentTheme(muiTheme)`.
+ */
+export interface WebComponentTheme {
+    type: WebComponentThemeType;
+    /** The main color of the host: buttons, links, the selected item */
+    primary: string;
+    /** Text on `primary` */
+    primaryContrast: string;
+    /** The color for accents beside `primary` */
+    secondary: string;
+    /** Text on `secondary` */
+    secondaryContrast: string;
+    /** The page behind the component */
+    background: string;
+    /** Panels, cards and dialogs on the page */
+    paper: string;
+    /** Text */
+    text: string;
+    /** Less important text: units, hints, labels */
+    textSecondary: string;
+    /** Lines between parts and borders */
+    divider: string;
+    error: string;
+    warning: string;
+    info: string;
+    success: string;
+    /** CSS `font-family` of the host */
+    fontFamily: string;
+    /** Base font size of the host in px */
+    fontSize: number;
+    /** Corner radius of buttons and fields in px; panels take about twice of it */
+    borderRadius: number;
+}
 
 interface WebComponentDialogBase {
     title?: WebComponentText;
@@ -217,7 +254,10 @@ export interface WebComponentDialogs {
 export interface WebComponentElement extends HTMLElement {
     socket?: WebComponentSocket | null;
     settings?: WebComponentSettings;
-    /** Optional: the theme of the host, `light` if the host does not set it */
+    /**
+     * Optional: the theme of the host, a complete object (`getWebComponentTheme()`); the light theme of ioBroker if
+     * the host does not set it. The base class also takes `light` or `dark` of hosts older than the object
+     */
     theme?: WebComponentTheme;
     /**
      * Optional: true while the user arranges the page in the editor of the host. The element then writes no

@@ -3,18 +3,24 @@
  *
  * A `<dialog>` opened with `showModal()` lies in the top layer: above everything of the page, and clipped by
  * nothing - not by the box of the component either. It lives in a shadow root of its own at the end of the
- * document, so neither its styles nor those of the page leak, and it inherits only the font and the color.
+ * document, so neither its styles nor those of the page leak. It takes the colors and the font of the theme.
  */
 import { DIALOG_CLOSE_EVENT, isFormDialog } from './dialog.js';
 import { getText } from './manifest.js';
 import { getPanelSettingTypes, toSettings } from './settings.js';
-import type { WebComponentDialogRequest, WebComponentSetting, WebComponentTheme } from './types.js';
+import { getThemeCssVariables, toWebComponentTheme } from './theme.js';
+import type {
+    WebComponentDialogRequest,
+    WebComponentSetting,
+    WebComponentTheme,
+    WebComponentThemeType,
+} from './types.js';
 
 export interface NativeDialogOptions {
     /** The language of the texts, `en` if missing */
     lang?: ioBroker.Languages;
-    /** `light` if missing */
-    theme?: WebComponentTheme;
+    /** The theme of the component (`this.theme`), or only `light` / `dark`; the light theme of ioBroker if missing */
+    theme?: Partial<WebComponentTheme> | WebComponentThemeType;
 }
 
 const WORDS: Record<'ok' | 'cancel' | 'close', Partial<Record<ioBroker.Languages, string>>> = {
@@ -49,26 +55,21 @@ const WORDS: Record<'ok' | 'cancel' | 'close', Partial<Record<ioBroker.Languages
 
 const STYLE = `
 dialog {
-    color-scheme: light;
-    --primary: #1976d2;
-    --primary-text: #fff;
     box-sizing: border-box;
     width: 480px;
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     padding: 0;
     border: 0;
-    border-radius: 8px;
-    background: Canvas;
-    color: CanvasText;
-    font: inherit;
+    border-radius: calc(var(--iob-border-radius) * 2);
+    background: var(--iob-paper);
+    color: var(--iob-text);
+    font-family: var(--iob-font-family);
+    font-size: var(--iob-font-size);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
 }
-dialog.dark {
-    color-scheme: dark;
-    --primary: #90caf9;
-    --primary-text: #000;
-}
+/* as the dialogs of MUI: a dark paper gets lighter the higher it lies */
+dialog.dark { background-image: linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.16)); }
 dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 dialog:focus { outline: none; }
 form { display: flex; flex-direction: column; height: 100%; max-height: inherit; margin: 0; }
@@ -76,17 +77,16 @@ header { display: flex; align-items: center; gap: 8px; padding: 12px 8px 12px 16
 header span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .body { flex: 1; min-height: 0; padding: 0 16px 16px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
 footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 16px 16px; }
-button { font: inherit; padding: 6px 16px; border-radius: 4px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; }
-button.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
-button.close { border: 0; padding: 2px 8px; font-size: 1.4em; line-height: 1; opacity: 0.7; }
+button { font: inherit; padding: 6px 16px; border-radius: var(--iob-border-radius); border: 1px solid var(--iob-primary); background: transparent; color: var(--iob-primary); cursor: pointer; }
+button.primary { background: var(--iob-primary); color: var(--iob-primary-contrast); }
+button.close { border: 0; padding: 2px 8px; font-size: 1.4em; line-height: 1; color: var(--iob-text-secondary); }
 label { display: flex; flex-direction: column; gap: 4px; }
 label.check { flex-direction: row; align-items: center; gap: 8px; }
-input, select, textarea { font: inherit; }
-input[type='range'] { accent-color: var(--primary); }
-.help { opacity: 0.7; font-size: 0.85em; }
+input, select, textarea { font: inherit; accent-color: var(--iob-primary); }
+.help { color: var(--iob-text-secondary); font-size: 0.85em; }
 h3 { margin: 4px 0 0; font-size: 1em; }
 p { margin: 0; }
-hr { width: 100%; border: 0; border-top: 1px solid currentColor; opacity: 0.3; margin: 0; }
+hr { width: 100%; border: 0; border-top: 1px solid var(--iob-divider); margin: 0; }
 [hidden] { display: none !important; }
 `;
 
@@ -257,7 +257,7 @@ function createField(
  * Show a dialog with the `<dialog>` of the browser
  *
  * @param request what to show: an element of the component in a frame, or a form
- * @param options language and theme
+ * @param options language and theme: the dialog takes the colors and the font of the theme
  * @returns for a form the values typed as it declares them, for an element the `detail` of its `iob-dialog-close`
  *   event; `null` when the user cancelled
  */
@@ -275,7 +275,11 @@ export function openNativeDialog(
     const style = doc.createElement('style');
     style.textContent = STYLE;
     const dialog = doc.createElement('dialog');
-    dialog.className = options.theme === 'dark' ? 'dark' : '';
+    const theme = toWebComponentTheme(options.theme);
+    dialog.className = theme.type === 'dark' ? 'dark' : '';
+    for (const [name, value] of Object.entries(getThemeCssVariables(theme))) {
+        dialog.style.setProperty(name, value);
+    }
     if (request.width) {
         dialog.style.width = `${request.width}px`;
     }

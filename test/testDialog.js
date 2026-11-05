@@ -79,6 +79,9 @@ describe('Dialogs', () => {
         const d = shown();
         assert.equal(d.dialog.open, true);
         assert.equal(d.dialog.className, 'dark');
+        // the colors of the theme: here only `dark`, so those of the dark theme of ioBroker
+        assert.equal(d.dialog.style.getPropertyValue('--iob-paper'), '#121212');
+        assert.equal(d.dialog.style.getPropertyValue('--iob-primary'), '#4DABF5');
         assert.equal(d.root.querySelector('header span').textContent, 'Bearbeiten');
         assert.equal(d.root.querySelector('h3').textContent, 'Grenzen');
         assert.equal(d.field('Name').value, 'Pump');
@@ -116,9 +119,16 @@ describe('Dialogs', () => {
     it('frames an element of the component and takes its result', async () => {
         const content = document.createElement('div');
         content.textContent = 'Battery 80 %';
-        const result = openNativeDialog({ title: 'Battery', element: content, width: 600 });
+        const result = openNativeDialog(
+            { title: 'Battery', element: content, width: 600 },
+            { theme: { type: 'light', primary: '#00af78', fontFamily: 'Inter' } },
+        );
         const d = shown();
         assert.equal(d.dialog.style.width, '600px');
+        assert.equal(d.dialog.className, '');
+        assert.equal(d.dialog.style.getPropertyValue('--iob-primary'), '#00af78');
+        assert.equal(d.dialog.style.getPropertyValue('--iob-font-family'), 'Inter');
+        assert.equal(d.dialog.style.getPropertyValue('--iob-paper'), '#FFFFFF');
         assert.equal(d.root.querySelector('.body').firstChild, content);
         assert.equal(d.root.querySelector('footer'), null);
 

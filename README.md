@@ -518,7 +518,7 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.7.0 (2026-11-09)
 - (@GermanBluefox) Added the optional `editsValue` to the manifest: the component edits a value, so a host that keeps
   values offers to bind it and a host without values can leave it out of its palette
 

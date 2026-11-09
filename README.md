@@ -59,6 +59,7 @@ shows the element.
 | `icon`        | optional: relative to the manifest file, or a `data:` URL                        |
 | `module`      | the ES module that registers the element, relative to the manifest file          |
 | `size`        | optional: the size the element looks best in, in px                              |
+| `editsValue`  | optional, `false` if missing: the component edits a value, see [Values](#values)   |
 | `settings`    | JSON-Config: a panel, or tabs of panels                                          |
 
 The schema is `@iobroker/web-components/schemas/manifest.json`; `checkManifest()` checks the same in code.
@@ -275,6 +276,10 @@ component looks and works and are set by whoever places it; the value is what th
   checks every value, may ask the user to confirm it and marks the configuration as changed. Until then the
   component shows what the user does from its own state.
 - In edit mode it changes nothing.
+
+A component that edits a value says so with `"editsValue": true` in its manifest. A host that keeps values offers to
+bind only such a component, and a host without values can leave it out of its palette. The manifest of an older
+component does not say it: a host treats a missing key as `false`, unless it has always offered the value anyway.
 
 The value belongs to the host, as with a controlled field: the base class changes `this.value` only when the host
 took the new one.
@@ -506,8 +511,6 @@ host serves the admin folder of the adapter itself, or its page is served by web
 
 - Size in a grid (sections of vis-2, cards of devices), and whether a component can ask its host for another size.
 - Which other events a host can bind to actions of its own, and whether the manifest lists them.
-- Whether the manifest says that a component edits a value, so that a host without values (vis-2) can leave it out
-  of its palette.
 - Versioning: two adapters bringing the same tag, an older module still cached by the browser.
 
 ## Changelog
@@ -515,6 +518,10 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) Added the optional `editsValue` to the manifest: the component edits a value, so a host that keeps
+  values offers to bind it and a host without values can leave it out of its palette
+
 ### 0.6.0 (2026-11-05)
 - (@GermanBluefox) Added values: a component that edits a value - in JSON-Config the attribute of its item - gets it
   from the host as the optional property `value` and changes it with the event `iob-change` (`CHANGE_EVENT`), whose

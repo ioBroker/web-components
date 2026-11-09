@@ -112,6 +112,11 @@ export interface WebComponentManifest {
     module?: string;
     /** The size the element looks best in. A host uses it for a new instance */
     size?: WebComponentSize;
+    /**
+     * Optional, false if missing. True: the component edits a value (property `value`, event `iob-change`), so a
+     * host that keeps values offers to bind it, and a host without values can leave it out of its palette
+     */
+    editsValue?: boolean;
     /** The settings of the component, in JSON-Config */
     settings: WebComponentSettingsPanel | WebComponentSettingsTabs;
 }

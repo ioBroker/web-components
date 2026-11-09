@@ -58,6 +58,10 @@
                 }
             }
         },
+        "editsValue": {
+            "description": "The component edits a value (property value, event iob-change): a host that keeps values offers to bind it, a host without values can leave it out of its palette. False if missing",
+            "type": "boolean"
+        },
         "settings": {
             "description": "The settings, in JSON-Config: a panel, or tabs of panels",
             "oneOf": [

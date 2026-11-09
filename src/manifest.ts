@@ -44,6 +44,9 @@ export function checkManifest(manifest: unknown): string | null {
             return 'size.noResize must be true or false';
         }
     }
+    if (m.editsValue !== undefined && typeof m.editsValue !== 'boolean') {
+        return 'editsValue must be true or false';
+    }
     const settings = m.settings as { type?: string; items?: unknown } | undefined;
     if (!settings || (settings.type !== 'panel' && settings.type !== 'tabs')) {
         return 'settings must be a JSON-Config panel or tabs';

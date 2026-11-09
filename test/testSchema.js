@@ -25,6 +25,9 @@ describe('schemas/manifest.json', () => {
             },
         };
         assert.equal(validate(tabs), true, JSON.stringify(validate.errors));
+        const edits = { ...FILE, editsValue: true };
+        assert.equal(validate(edits), true, JSON.stringify(validate.errors));
+        assert.equal(checkManifest(edits), null);
     });
 
     it('rejects what checkManifest rejects', () => {
@@ -35,6 +38,7 @@ describe('schemas/manifest.json', () => {
             { ...FILE, module: '' },
             { ...FILE, size: { width: 0, height: 10 } },
             { ...FILE, size: { width: 10, height: 10, noResize: 'yes' } },
+            { ...FILE, editsValue: 'yes' },
             { ...FILE, settings: { type: 'table', items: {} } },
         ]) {
             assert.equal(validate(wrong), false, JSON.stringify(wrong));

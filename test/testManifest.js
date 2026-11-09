@@ -57,6 +57,7 @@ describe('checkManifest', () => {
         assert.match(checkManifest({ ...MANIFEST, settings: { type: 'panel' } }), /no items/);
         assert.match(checkManifest([]), /no manifest/);
         assert.match(checkManifest({ ...MANIFEST, module: '' }), /module/);
+        assert.match(checkManifest({ ...MANIFEST, editsValue: 'yes' }), /editsValue/);
         assert.match(checkManifest({ ...MANIFEST, module: 42 }), /module/);
     });
 

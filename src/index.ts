@@ -14,6 +14,13 @@ export {
     type WebComponentSettingsGroup,
 } from './manifest.js';
 export { getDefaultSettings, getPanelSettingTypes, getSettingTypes, toSettings, toSettingValue } from './settings.js';
+export {
+    fillPattern,
+    getSendToRequest,
+    SEND_TO_TYPES,
+    toSendToOptions,
+    type WebComponentSendToRequest,
+} from './sendTo.js';
 export { CHANGE_EVENT, DIALOG_CLOSE_EVENT, isFormDialog, NAVIGATE_EVENT } from './dialog.js';
 export { getWebComponentFiles, getWebComponentSources, type WebComponentInstance } from './sources.js';
 export {

@@ -146,6 +146,8 @@
                         "checkbox",
                         "color",
                         "select",
+                        "selectSendTo",
+                        "autocompleteSendTo",
                         "objectId",
                         "instance",
                         "header",
@@ -173,6 +175,35 @@
                             "label": { "$ref": "#/definitions/text" }
                         }
                     }
+                },
+                "command": {
+                    "description": "selectSendTo, autocompleteSendTo: the command sent to the instance, send if missing",
+                    "type": "string"
+                },
+                "jsonData": {
+                    "description": "selectSendTo, autocompleteSendTo: the message, a pattern over data that gives JSON",
+                    "type": "string"
+                },
+                "data": {
+                    "description": "selectSendTo, autocompleteSendTo: the message as it is, if there is no jsonData"
+                },
+                "instance": {
+                    "description": "selectSendTo, autocompleteSendTo: the instance asked, like my-adapter.0 or ${data.instance}; the first instance of the adapter of the component if missing",
+                    "type": "string"
+                },
+                "alsoDependsOn": {
+                    "description": "selectSendTo, autocompleteSendTo: settings whose change asks the instance again",
+                    "type": "array",
+                    "items": { "type": "string" }
+                },
+                "freeSolo": {
+                    "description": "autocompleteSendTo: any text is a value, not only one of the options",
+                    "type": "boolean"
+                },
+                "maxLength": {
+                    "description": "autocompleteSendTo: the longest text",
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "adapter": { "type": "string" },
                 "types": {

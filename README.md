@@ -93,6 +93,30 @@ host can show:
 (`options: [{ value, label }]`), `objectId` (`types`, `root`, e.g. `types: 'config', root: 'flow.0.diagrams'`),
 `instance` (`adapter`), and the decorations without a value `header`, `staticText` (`text`) and `divider`.
 
+A list whose entries only the adapter knows at runtime - its locations, devices, diagrams - is a `selectSendTo`, or
+an `autocompleteSendTo` (`freeSolo`, `maxLength`, `options` shown in addition) to type in or search. The host asks
+the instance with `sendTo(instance, command, data)`, as JSON-Config does, and takes the answer
+`[{ value, label }]` as the options:
+
+```json
+"location": {
+    "type": "selectSendTo",
+    "label": { "en": "Location", "de": "Ort" },
+    "command": "getLocations",
+    "jsonData": "{ \"lang\": \"${data.lang}\" }",
+    "instance": "${data.instance}",
+    "alsoDependsOn": ["region"]
+}
+```
+
+`data` is the message as it is; `jsonData` is a pattern over the values of the settings that gives the message as
+JSON. `instance` is a pattern too, like `${data.instance}` for a setting of type `instance`. Unlike JSON-Config,
+where the request goes to the instance being configured, a component has none: without `instance` the host asks
+the first instance of the adapter that brings the component, `<adapter>.0`. The host asks again when the message,
+the instance or a setting in `alsoDependsOn` changes. `getSendToRequest(setting, data, adapter)` gives instance,
+command, message and a `key` to compare, `toSendToOptions(answer)` the options. A host that cannot ask, or gets no
+answer, shows a text field - so the value stays editable, and an older host still works.
+
 Every text (`name`, `label`, `help`, `text`, the labels of options) is a string or `{ en, de, ... }`. `hidden`
 and `disabled` are JS expressions over `data`, the values of all settings.
 
@@ -563,6 +587,9 @@ host serves the admin folder of the adapter itself, or its page is served by web
     ### **WORK IN PROGRESS**
 -->
 ### **WORK IN PROGRESS**
+- (@GermanBluefox) Added the setting types `selectSendTo` and `autocompleteSendTo` of JSON-Config: the options come
+  from the adapter via `sendTo` (`command`, `jsonData` or `data`, `instance`, `alsoDependsOn`; `freeSolo` and
+  `maxLength` for `autocompleteSendTo`). `getSendToRequest` and `toSendToOptions` do the work for a host (#4)
 - (@GermanBluefox) Added the short form of a manifest in `common.webComponents`: an entry may be an object with the
   manifest file and its `tag`, `name`, `icon` and `size`, so that a host can list a component whose adapter is not
   installed, from the repository alone. The program `iob-web-components sync-io-package` writes it from the manifests

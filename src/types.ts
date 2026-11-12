@@ -27,6 +27,8 @@ export type WebComponentSettingType =
     | 'checkbox'
     | 'color'
     | 'select'
+    | 'selectSendTo'
+    | 'autocompleteSendTo'
     | 'objectId'
     | 'instance'
     | 'header'
@@ -53,8 +55,25 @@ export interface WebComponentSetting {
     step?: number;
     /** `text`: more than one line */
     minRows?: number;
-    /** `select` */
+    /** `select`; `autocompleteSendTo`: shown in addition to the answer of the instance */
     options?: WebComponentSettingOption[];
+    /** `selectSendTo`, `autocompleteSendTo`: the command sent to the instance, `send` if missing */
+    command?: string;
+    /** `selectSendTo`, `autocompleteSendTo`: the message, as a pattern over `data` that gives JSON */
+    jsonData?: string;
+    /** `selectSendTo`, `autocompleteSendTo`: the message as it is, if there is no `jsonData` */
+    data?: unknown;
+    /**
+     * `selectSendTo`, `autocompleteSendTo`: the instance asked, like `my-adapter.0` or `${data.instance}`; the first
+     * instance of the adapter of the component if missing
+     */
+    instance?: string;
+    /** `selectSendTo`, `autocompleteSendTo`: settings whose change asks the instance again */
+    alsoDependsOn?: string[];
+    /** `autocompleteSendTo`: any text is a value, not only one of the options */
+    freeSolo?: boolean;
+    /** `autocompleteSendTo`: the longest text */
+    maxLength?: number;
     /** `instance`: instances of this adapter only */
     adapter?: string;
     /** `objectId`: objects of these types only, `state` if missing - as in JSON-Config */

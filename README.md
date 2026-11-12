@@ -586,7 +586,7 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.8.0 (2026-11-12)
 - (@GermanBluefox) Added the setting types `selectSendTo` and `autocompleteSendTo` of JSON-Config: the options come
   from the adapter via `sendTo` (`command`, `jsonData` or `data`, `instance`, `alsoDependsOn`; `freeSolo` and
   `maxLength` for `autocompleteSendTo`). `getSendToRequest` and `toSendToOptions` do the work for a host (#4)

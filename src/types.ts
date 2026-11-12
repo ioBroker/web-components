@@ -316,3 +316,25 @@ export interface WebComponentFile {
     /** Path of the file in it, e.g. `webcomponents/my-tile.json` */
     fileName: string;
 }
+
+/**
+ * An entry of `common.webComponents` with a short form of its manifest: what a host needs to list the component
+ * while its adapter is not installed - the repository has it, the manifest file not. Generated from the manifest by
+ * `syncWebComponentEntries` (CLI: `iob-web-components sync-io-package`), never written by hand. Settings and
+ * description are left out on purpose, as `common` is copied into every instance object
+ */
+export interface WebComponentEntry {
+    /** The manifest file (`.json`), relative to the admin folder of the adapter, like a plain entry */
+    manifest: string;
+    /** Name of the custom element, as in the manifest */
+    tag: string;
+    /** Name of the component, as in the manifest */
+    name: WebComponentText;
+    /** Picture of the component, as in the manifest, relative to the manifest file. A `data:` URL is left out */
+    icon?: string;
+    /** The size the element looks best in, as in the manifest */
+    size?: WebComponentSize;
+}
+
+/** An entry of `common.webComponents`: the path of a manifest file (or of an older module), or the short form */
+export type WebComponentIoPackageEntry = string | WebComponentEntry;

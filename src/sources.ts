@@ -9,8 +9,10 @@
  * "common": { "webComponents": ["webcomponents/my-tile.json"] }
  * ```
  *
- * An entry may also be a module that exports its manifest (`.js`), as before 0.3.0.
+ * An entry may also be a module that exports its manifest (`.js`), as before 0.3.0, or an object with the manifest
+ * file in `manifest` and a short form of the manifest (see `syncWebComponentEntries`).
  */
+import { getWebComponentEntryFile } from './ioPackage.js';
 import type { WebComponentFile, WebComponentSource } from './types.js';
 
 /** The part of an instance object this module reads */
@@ -59,10 +61,11 @@ export function getWebComponentSources(instances: WebComponentInstance[], baseUr
         const adapter = getAdapterName(instance._id);
         const adapterBase = new URL(`${adapter}/`, adaptersFolder);
         for (const entry of list) {
-            if (typeof entry !== 'string' || !entry) {
+            const file = getWebComponentEntryFile(entry);
+            if (!file) {
                 continue;
             }
-            const url = new URL(entry, adapterBase).href;
+            const url = new URL(file, adapterBase).href;
             // every instance of an adapter lists the same files
             if (!sources.some(source => source.url === url)) {
                 sources.push({ url, adapter, version: instance.common.version || '' });
@@ -88,10 +91,11 @@ export function getWebComponentFiles(instances: WebComponentInstance[]): WebComp
         }
         const adapter = getAdapterName(instance._id);
         for (const entry of list) {
-            if (typeof entry !== 'string' || !/\.json$/i.test(entry)) {
+            const file = getWebComponentEntryFile(entry);
+            if (!file || !/\.json$/i.test(file)) {
                 continue;
             }
-            const url = new URL(entry, folder);
+            const url = new URL(file, folder);
             if (!url.href.startsWith(folder)) {
                 continue;
             }

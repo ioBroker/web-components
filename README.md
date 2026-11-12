@@ -456,6 +456,50 @@ same place; the file storage of ioBroker has it as `<adapter>.admin`.
 }
 ```
 
+### The short form in io-package.json
+
+The repository of ioBroker carries `common` of every adapter, but not its files. So that a host can list a component
+whose adapter is not installed - greyed out, with its name and picture instead of a file name - an entry may carry a
+short form of its manifest next to the path:
+
+```json
+"common": {
+    "webComponents": [
+        {
+            "manifest": "webcomponents/my-tile.json",
+            "tag": "my-tile",
+            "name": { "en": "My tile", "de": "Meine Kachel" },
+            "icon": "my-tile.svg",
+            "size": { "width": 360, "height": 420 }
+        }
+    ]
+}
+```
+
+Nobody writes it by hand: the manifest stays the only source, and the build of the adapter writes the short form
+from it, after the manifests are written:
+
+```json
+"scripts": {
+    "build": "... && iob-web-components sync-io-package"
+}
+```
+
+`iob-web-components sync-io-package [<adapter folder>]` reads the manifests from the admin folder and rewrites only
+the list `webComponents` of `io-package.json`, the rest of the file stays as it is. With `--check` it writes
+nothing and fails if the list differs from the manifests - for a test of the adapter. In code the same is
+`syncWebComponentEntries(entries, readManifest)` and `checkWebComponentEntries(entries, readManifest)`; the
+repochecker uses the latter with the manifests of the npm package.
+
+- Only `tag`, `name`, `icon` and `size` (with `noResize`) are taken: `common` is copied into every instance object,
+  and the translated settings and descriptions would make it many times bigger. The short form is ~400 bytes per
+  component.
+- An icon as `data:` URL is left out. A path stays relative to the manifest file; a host that cannot load it from
+  the adapter builds a URL from the repository, e.g. on GitHub with the tag of the version.
+- A plain path stays valid, and so does a module that exports its manifest (`.js`), which has no short form.
+- `getWebComponentSources` and `getWebComponentFiles` take both forms; `getWebComponentEntryFile(entry)` gives the
+  path of either.
+
 ```ts
 import {
     getSettingTypes,
@@ -518,6 +562,13 @@ host serves the admin folder of the adapter itself, or its page is served by web
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+- (@GermanBluefox) Added the short form of a manifest in `common.webComponents`: an entry may be an object with the
+  manifest file and its `tag`, `name`, `icon` and `size`, so that a host can list a component whose adapter is not
+  installed, from the repository alone. The program `iob-web-components sync-io-package` writes it from the manifests
+  in the build of an adapter and checks it with `--check`; `syncWebComponentEntries` and `checkWebComponentEntries`
+  do the same in code. `getWebComponentSources` and `getWebComponentFiles` take both forms
+
 ### 0.7.0 (2026-11-09)
 - (@GermanBluefox) Added the optional `editsValue` to the manifest: the component edits a value, so a host that keeps
   values offers to bind it and a host without values can leave it out of its palette
